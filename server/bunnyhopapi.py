@@ -212,14 +212,26 @@ class Server:
 
                 type_hints = get_type_hints(handler)
                 validated_params = {}
+
+                # Procesar path parameters
                 for param_name, param_value in params.items():
                     if param_name in type_hints:
                         param_type = type_hints[param_name]
                         logger.info(f"{param_name} {param_type.__dict__} {param_value}")
                         if isinstance(param_type, PathParam):
-                            validated_params[param_name] = param_type.validate(
-                                param_value
-                            )
+                            try:
+                                validated_params[param_name] = param_type.validate(
+                                    param_value
+                                )
+                            except ValueError as e:
+                                error_msg = (
+                                    f"Invalid path parameter '{param_name}': {str(e)}"
+                                )
+                                return (
+                                    content_type,
+                                    422,
+                                    {"error": error_msg, "field": param_name},
+                                )
                         else:
                             validated_params[param_name] = param_value
 
@@ -234,14 +246,43 @@ class Server:
                         ):
                             try:
                                 body_data = json.loads(body)
-                                validated_params[param_name] = param_type(**body_data)
                             except json.JSONDecodeError:
-                                raise ValueError("Invalid JSON in request body")
-                            except Exception as e:
-                                raise ValueError(
-                                    f"Invalid data for {param_type.__name__}: {str(e)}"
+                                error_msg = "Invalid JSON format in request body"
+                                return content_type, 400, {"error": error_msg}
+
+                            try:
+                                validated_params[param_name] = param_type(**body_data)
+                            except ValueError as e:
+                                errors = e.errors()
+                                error_details = []
+                                for error in errors:
+                                    field = "->".join(str(loc) for loc in error["loc"])
+                                    msg = error["msg"]
+                                    error_details.append(
+                                        {
+                                            "field": field,
+                                            "message": msg,
+                                            "type": error["type"],
+                                        }
+                                    )
+                                return (
+                                    content_type,
+                                    422,
+                                    {
+                                        "error": "Validation error",
+                                        "details": error_details,
+                                    },
                                 )
-                response = await handler(**validated_params)
+
+                try:
+                    response = await handler(**validated_params)
+                except Exception as e:
+                    logger.error(f"Handler error: {str(e)}", exc_info=True)
+                    return (
+                        content_type,
+                        500,
+                        {"error": "Internal server error", "message": str(e)},
+                    )
 
                 if asyncio.iscoroutine(response):
                     response = await response
@@ -255,13 +296,25 @@ class Server:
 
                 return content_type, status_code, response_data
 
-        raise KeyError("Route not found")
+        error_msg = f"Route {method} {path} not found"
+        return "application/json", 404, {"error": error_msg}
 
     async def handle_response(self, path, method, body=None):
         try:
             content_type, status_code, response_data = await self.execute_handler(
                 path, method, body
             )
+
+            # Si es un error, asegurarnos que el content_type es application/json
+            if status_code >= 400:
+                content_type = "application/json"
+                if isinstance(response_data, dict):
+                    response_data = json.dumps(response_data).encode("utf-8")
+                else:
+                    response_data = json.dumps({"error": str(response_data)}).encode(
+                        "utf-8"
+                    )
+
             content_length = len(response_data)
 
             response = (
@@ -272,14 +325,18 @@ class Server:
                 b"\r\n"
             )
             return response + response_data
-        except KeyError:
-            return b"HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n"
-        except TypeError as e:
-            logger.error(f"Serialization error: {e}")
-            return b"HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n"
-        except ValueError as e:
-            logger.error(f"Validation error: {e}")
-            return b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            error_data = json.dumps(
+                {"error": "Internal server error", "message": str(e)}
+            ).encode("utf-8")
+            return (
+                b"HTTP/1.1 500 Internal Server Error\r\n"
+                b"Content-Type: application/json\r\n"
+                b"Content-Length: " + str(len(error_data)).encode("utf-8") + b"\r\n"
+                b"Connection: close\r\n"
+                b"\r\n"
+            ) + error_data
 
     async def handle_client(self, reader, writer):
         try:
