@@ -74,7 +74,9 @@ class Server:
                 type_hints = get_type_hints(handler)
                 response_schema = {}
                 parameters = []
+                request_body = None
 
+                # Procesar path parameters
                 for param_name, param_type in type_hints.items():
                     if isinstance(param_type, PathParam):
                         inner_type = param_type.param_type
@@ -89,6 +91,31 @@ class Server:
                             }
                         )
 
+                # Procesar body parameters (modelos Pydantic)
+                for param_name, param_type in type_hints.items():
+                    if (
+                        inspect.isclass(param_type)
+                        and issubclass(param_type, BaseModel)
+                        and not isinstance(param_type, PathParam)
+                    ):
+                        request_body = {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": param_type.schema(
+                                        ref_template="#/components/schemas/{model}"
+                                    )
+                                }
+                            },
+                        }
+                        # Añadir el modelo a los componentes schemas si no está ya
+                        if "components" not in SWAGGER_JSON:
+                            SWAGGER_JSON["components"] = {"schemas": {}}
+                        SWAGGER_JSON["components"]["schemas"][param_type.__name__] = (
+                            param_type.schema()
+                        )
+
+                # Procesar return types
                 if "return" in type_hints:
                     return_type = type_hints["return"]
                     if isinstance(return_type, dict):
@@ -100,6 +127,12 @@ class Server:
                                         "application/json": {"schema": model.schema()}
                                     },
                                 }
+                                # Añadir el modelo de respuesta a los componentes
+                                if "components" not in SWAGGER_JSON:
+                                    SWAGGER_JSON["components"] = {"schemas": {}}
+                                SWAGGER_JSON["components"]["schemas"][
+                                    model.__name__
+                                ] = model.schema()
                     elif inspect.isclass(return_type) and issubclass(
                         return_type, BaseModel
                     ):
@@ -109,10 +142,16 @@ class Server:
                                 "application/json": {"schema": return_type.schema()}
                             },
                         }
+                        # Añadir el modelo de respuesta a los componentes
+                        if "components" not in SWAGGER_JSON:
+                            SWAGGER_JSON["components"] = {"schemas": {}}
+                        SWAGGER_JSON["components"]["schemas"][return_type.__name__] = (
+                            return_type.schema()
+                        )
 
-                SWAGGER_JSON["paths"][swagger_path][method.lower()] = {
+                # Construir la operación Swagger
+                operation = {
                     "summary": f"Handler for {method} {path}",
-                    "parameters": parameters,
                     "responses": response_schema
                     or {
                         200: {
@@ -121,6 +160,15 @@ class Server:
                         }
                     },
                 }
+
+                if parameters:
+                    operation["parameters"] = parameters
+
+                if request_body and method.upper() in ["POST", "PUT", "PATCH"]:
+                    operation["requestBody"] = request_body
+
+                SWAGGER_JSON["paths"][swagger_path][method.lower()] = operation
+
         return 200, SWAGGER_JSON
 
     async def swagger_ui_handler(self):

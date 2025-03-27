@@ -28,7 +28,9 @@ async def helthcheck() -> {200: HealthCheckResponse}:
 
 
 async def create_room(room: Room) -> {200: HelloResponse}:
-    return 200, {"message": "Room created"}
+    name = room.name
+    capacity = room.capacity
+    return 200, {"message": f"Room {name} with capacity {capacity} created"}
 
 
 def main():
