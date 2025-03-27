@@ -235,7 +235,6 @@ class Server:
         type_hints = get_type_hints(handler)
         validated_params = {}
 
-        # Procesar path parameters
         for param_name, param_value in params.items():
             if param_name in type_hints:
                 param_type = type_hints[param_name]
@@ -254,7 +253,6 @@ class Server:
                 else:
                     validated_params[param_name] = param_value
 
-        # Procesar body si existe
         if body:
             for param_name, param_type in type_hints.items():
                 if (
@@ -352,41 +350,71 @@ class Server:
         try:
             request_data = await reader.read(8192)
             if not request_data:
-                writer.close()
-                await writer.wait_closed()
+                await self._close_writer(writer)
                 return
 
-            request_lines = request_data.decode().split("\r\n")
-            method, path, _ = request_lines[0].split(" ", 2)
-            # Leer headers para obtener content-length si existe
-            headers = {}
-            body = None
+            try:
+                request_lines = request_data.decode().split("\r\n")
+                if len(request_lines) < 1:
+                    await self._close_writer(writer)
+                    return
 
-            for line in request_lines[1:]:
-                if not line.strip():
-                    break  # Fin de headers
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    headers[key.strip().lower()] = value.strip()
+                first_line = request_lines[0].split(" ", 2)
+                if len(first_line) < 2:
+                    await self._close_writer(writer)
+                    return
 
-            # Si hay body, leerlo
-            if "content-length" in headers:
-                content_length = int(headers["content-length"])
-                # Encontrar el inicio del body (doble CRLF)
-                body_start = request_data.find(b"\r\n\r\n") + 4
-                body = request_data[body_start : body_start + content_length].decode(
-                    "utf-8"
-                )
+                method, path = first_line[0], first_line[1]
 
-            response = await self.handle_response(path, method, body)
+                headers = {}
+                body = None
+                for line in request_lines[1:]:
+                    if not line.strip():
+                        break
+                    if ":" in line:
+                        key, value = line.split(":", 1)
+                        headers[key.strip().lower()] = value.strip()
 
-            writer.write(response)
-            await writer.drain()
+                if "content-length" in headers:
+                    try:
+                        content_length = int(headers["content-length"])
+                        body_start = request_data.find(b"\r\n\r\n") + 4
+                        if body_start > 0 and body_start + content_length <= len(
+                            request_data
+                        ):
+                            body = request_data[
+                                body_start : body_start + content_length
+                            ].decode("utf-8")
+                    except (ValueError, UnicodeDecodeError):
+                        pass
+
+                try:
+                    response = await self.handle_response(path, method, body)
+                    writer.write(response)
+                    await writer.drain()
+                except ConnectionResetError:
+                    logger.debug("Client disconnected before response could be sent")
+                except Exception as e:
+                    logger.error(f"Error handling response: {e}")
+
+            except Exception as e:
+                logger.error(f"Error processing request: {e}")
+
+        except ConnectionResetError:
+            logger.debug("Client connection reset before request could be read")
         except Exception as e:
-            logger.error(f"Error manejando cliente: {e}")
+            logger.error(f"Unexpected client handling error: {e}")
         finally:
+            await self._close_writer(writer)
+
+    async def _close_writer(self, writer):
+        try:
+            if writer.can_write_eof():
+                writer.write_eof()
             writer.close()
             await writer.wait_closed()
+        except Exception as e:
+            logger.debug(f"Error closing writer: {e}")
 
     async def _run(self):
         server = await asyncio.start_server(
