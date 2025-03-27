@@ -40,18 +40,23 @@ class Server:
     port: int = 8000
     host: str = "0.0.0.0"
     routes: dict = field(default_factory=dict)
+    routes_with_params: dict = field(default_factory=dict)
 
     def _parse_path(self, path: str):
         param_pattern = re.compile(r"<(\w+)>")
-        return re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
+        regex_pattern = re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
+        return re.compile(regex_pattern)
 
     def _extract_params(self, path: str, route_path: str):
-        param_pattern = re.compile(r"<(\w+)>")
-        param_names = param_pattern.findall(route_path)
-        match = re.match(self._parse_path(route_path), path)
+        if route_path not in self.routes_with_params:
+            return None
+
+        compiled_pattern = self.routes_with_params[route_path]
+        match = compiled_pattern.match(path)
         if not match:
             return None
-        return {name: match.group(name) for name in param_names}
+
+        return match.groupdict()
 
     async def generate_swagger_json(self):
         if SWAGGER_JSON["paths"]:
@@ -199,105 +204,110 @@ class Server:
         logger.info(f"Adding route {method} {path}")
         if path not in self.routes:
             self.routes[path] = {}
+            if "<" in path:
+                self.routes_with_params[path] = self._parse_path(path)
+
         self.routes[path][method] = {"handler": handler, "content_type": content_type}
 
     async def execute_handler(self, path, method, body=None):
-        sorted_routes = sorted(self.routes.items(), key=lambda item: -len(item[0]))
-        for route_path, methods in sorted_routes:
+        if path in self.routes and method in self.routes[path]:
+            route_info = self.routes[path][method]
+            return await self._process_handler(route_info, {}, path, method, body)
+
+        for route_path, methods in self.routes.items():
+            if method not in methods:
+                continue
+
             params = self._extract_params(path, route_path)
-            if params is not None and method in methods:
-                route = methods[method]
-                handler = route["handler"]
-                content_type = route["content_type"]
+            if params is not None:
+                route_info = methods[method]
+                return await self._process_handler(
+                    route_info, params, path, method, body
+                )
 
-                type_hints = get_type_hints(handler)
-                validated_params = {}
-
-                # Procesar path parameters
-                for param_name, param_value in params.items():
-                    if param_name in type_hints:
-                        param_type = type_hints[param_name]
-                        logger.info(f"{param_name} {param_type.__dict__} {param_value}")
-                        if isinstance(param_type, PathParam):
-                            try:
-                                validated_params[param_name] = param_type.validate(
-                                    param_value
-                                )
-                            except ValueError as e:
-                                error_msg = (
-                                    f"Invalid path parameter '{param_name}': {str(e)}"
-                                )
-                                return (
-                                    content_type,
-                                    422,
-                                    {"error": error_msg, "field": param_name},
-                                )
-                        else:
-                            validated_params[param_name] = param_value
-
-                # Procesar body si existe
-                if body:
-                    for param_name, param_type in type_hints.items():
-                        # Buscar el parámetro que es un modelo Pydantic y no está en los path params
-                        if (
-                            inspect.isclass(param_type)
-                            and issubclass(param_type, BaseModel)
-                            and param_name not in validated_params
-                        ):
-                            try:
-                                body_data = json.loads(body)
-                            except json.JSONDecodeError:
-                                error_msg = "Invalid JSON format in request body"
-                                return content_type, 400, {"error": error_msg}
-
-                            try:
-                                validated_params[param_name] = param_type(**body_data)
-                            except ValueError as e:
-                                errors = e.errors()
-                                error_details = []
-                                for error in errors:
-                                    field = "->".join(str(loc) for loc in error["loc"])
-                                    msg = error["msg"]
-                                    error_details.append(
-                                        {
-                                            "field": field,
-                                            "message": msg,
-                                            "type": error["type"],
-                                        }
-                                    )
-                                return (
-                                    content_type,
-                                    422,
-                                    {
-                                        "error": "Validation error",
-                                        "details": error_details,
-                                    },
-                                )
-
-                try:
-                    response = await handler(**validated_params)
-                except Exception as e:
-                    logger.error(f"Handler error: {str(e)}", exc_info=True)
-                    return (
-                        content_type,
-                        500,
-                        {"error": "Internal server error", "message": str(e)},
-                    )
-
-                if asyncio.iscoroutine(response):
-                    response = await response
-
-                status_code, response_data = response
-
-                if content_type == "text/html" and isinstance(response_data, str):
-                    response_data = response_data.encode("utf-8")
-                else:
-                    response_data = json.dumps(response_data).encode("utf-8")
-
-                return content_type, status_code, response_data
-
+        # Si no se encontró ninguna ruta válida
         error_msg = f"Route {method} {path} not found"
         return "application/json", 404, {"error": error_msg}
+
+    async def _process_handler(self, route_info, params, path, method, body):
+        handler = route_info["handler"]
+        content_type = route_info["content_type"]
+        type_hints = get_type_hints(handler)
+        validated_params = {}
+
+        # Procesar path parameters
+        for param_name, param_value in params.items():
+            if param_name in type_hints:
+                param_type = type_hints[param_name]
+                logger.debug(f"Processing param {param_name} with type {param_type}")
+
+                if isinstance(param_type, PathParam):
+                    try:
+                        validated_params[param_name] = param_type.validate(param_value)
+                    except ValueError as e:
+                        error_msg = f"Invalid path parameter '{param_name}': {str(e)}"
+                        return (
+                            content_type,
+                            422,
+                            {"error": error_msg, "field": param_name},
+                        )
+                else:
+                    validated_params[param_name] = param_value
+
+        # Procesar body si existe
+        if body:
+            for param_name, param_type in type_hints.items():
+                if (
+                    inspect.isclass(param_type)
+                    and issubclass(param_type, BaseModel)
+                    and param_name not in validated_params
+                ):
+                    try:
+                        body_data = json.loads(body)
+                    except json.JSONDecodeError:
+                        error_msg = "Invalid JSON format in request body"
+                        return content_type, 400, {"error": error_msg}
+
+                    try:
+                        validated_params[param_name] = param_type(**body_data)
+                    except ValueError as e:
+                        errors = e.errors()
+                        error_details = [
+                            {
+                                "field": "->".join(str(loc) for loc in error["loc"]),
+                                "message": error["msg"],
+                                "type": error["type"],
+                            }
+                            for error in errors
+                        ]
+
+                        return (
+                            content_type,
+                            422,
+                            {"error": "Validation error", "details": error_details},
+                        )
+
+        try:
+            response = await handler(**validated_params)
+            if asyncio.iscoroutine(response):
+                response = await response
+
+            status_code, response_data = response
+
+            if content_type == "text/html" and isinstance(response_data, str):
+                response_data = response_data.encode("utf-8")
+            else:
+                response_data = json.dumps(response_data).encode("utf-8")
+
+            return content_type, status_code, response_data
+
+        except Exception as e:
+            logger.error(f"Handler error for {method} {path}: {str(e)}", exc_info=True)
+            return (
+                content_type,
+                500,
+                {"error": "Internal server error", "message": str(e)},
+            )
 
     async def handle_response(self, path, method, body=None):
         try:
