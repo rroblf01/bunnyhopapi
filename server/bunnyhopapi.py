@@ -3,9 +3,9 @@ import json
 import logging
 import inspect
 import re
-from typing import Any, Type, Union, get_type_hints, TypeVar, Generic
+from typing import Type, get_type_hints, TypeVar, Generic
 from dataclasses import dataclass, field
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -57,11 +57,16 @@ class Server:
         if SWAGGER_JSON["paths"]:
             return 200, SWAGGER_JSON
 
+        TYPE_MAPPING = {
+            "int": "integer",
+            "float": "number",
+            "str": "string",
+            "bool": "boolean",
+        }
         for path, methods in self.routes.items():
             if path in {"/docs", "/swagger.json"}:
                 continue
 
-            # Reemplazar <param> con {param} para Swagger
             swagger_path = re.sub(r"<(\w+)>", r"{\1}", path)
             SWAGGER_JSON["paths"][swagger_path] = {}
             for method, details in methods.items():
@@ -70,17 +75,16 @@ class Server:
                 response_schema = {}
                 parameters = []
                 for param_name, param_type in type_hints.items():
-                    # Detectar y procesar parámetros de tipo PathParam
                     if isinstance(param_type, PathParam):
-                        inner_type = (
-                            param_type.param_type
-                        )  # Acceder a param_type directamente
+                        inner_type = param_type.param_type
+                        type_name = inner_type.__name__.lower()
+                        swagger_type = TYPE_MAPPING.get(type_name, type_name)
                         parameters.append(
                             {
                                 "name": param_name,
                                 "in": "path",
-                                "required": False,
-                                "schema": {"type": inner_type.__name__.lower()},
+                                "required": True,
+                                "schema": {"type": swagger_type},
                             }
                         )
 
