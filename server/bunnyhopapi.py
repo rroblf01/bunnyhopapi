@@ -74,6 +74,7 @@ class Server:
                 type_hints = get_type_hints(handler)
                 response_schema = {}
                 parameters = []
+
                 for param_name, param_type in type_hints.items():
                     if isinstance(param_type, PathParam):
                         inner_type = param_type.param_type
@@ -152,8 +153,7 @@ class Server:
             self.routes[path] = {}
         self.routes[path][method] = {"handler": handler, "content_type": content_type}
 
-    async def execute_handler(self, path, method):
-        # Ordenar las rutas por longitud descendente para evitar conflictos
+    async def execute_handler(self, path, method, body=None):
         sorted_routes = sorted(self.routes.items(), key=lambda item: -len(item[0]))
         for route_path, methods in sorted_routes:
             params = self._extract_params(path, route_path)
@@ -162,7 +162,6 @@ class Server:
                 handler = route["handler"]
                 content_type = route["content_type"]
 
-                # Validar y convertir parámetros
                 type_hints = get_type_hints(handler)
                 validated_params = {}
                 for param_name, param_value in params.items():
@@ -170,18 +169,30 @@ class Server:
                         param_type = type_hints[param_name]
                         logger.info(f"{param_name} {param_type.__dict__} {param_value}")
                         if isinstance(param_type, PathParam):
-                            logger.info("**********************")
-                            logger.info("**********************")
-                            logger.info("**********************")
-                            logger.info("**********************")
-                            logger.info("**********************")
-                            logger.info(f"{param_type} {param_value}")
                             validated_params[param_name] = param_type.validate(
                                 param_value
                             )
                         else:
                             validated_params[param_name] = param_value
 
+                # Procesar body si existe
+                if body:
+                    for param_name, param_type in type_hints.items():
+                        # Buscar el parámetro que es un modelo Pydantic y no está en los path params
+                        if (
+                            inspect.isclass(param_type)
+                            and issubclass(param_type, BaseModel)
+                            and param_name not in validated_params
+                        ):
+                            try:
+                                body_data = json.loads(body)
+                                validated_params[param_name] = param_type(**body_data)
+                            except json.JSONDecodeError:
+                                raise ValueError("Invalid JSON in request body")
+                            except Exception as e:
+                                raise ValueError(
+                                    f"Invalid data for {param_type.__name__}: {str(e)}"
+                                )
                 response = await handler(**validated_params)
 
                 if asyncio.iscoroutine(response):
@@ -198,10 +209,10 @@ class Server:
 
         raise KeyError("Route not found")
 
-    async def handle_response(self, path, method):
+    async def handle_response(self, path, method, body=None):
         try:
             content_type, status_code, response_data = await self.execute_handler(
-                path, method
+                path, method, body
             )
             content_length = len(response_data)
 
@@ -218,20 +229,41 @@ class Server:
         except TypeError as e:
             logger.error(f"Serialization error: {e}")
             return b"HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n"
+        except ValueError as e:
+            logger.error(f"Validation error: {e}")
+            return b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n"
 
     async def handle_client(self, reader, writer):
         try:
-            request_line = await reader.read(
-                8192
-            )  # Incrementar tamaño del búfer de lectura
-            if not request_line:
+            request_data = await reader.read(8192)
+            if not request_data:
                 writer.close()
                 await writer.wait_closed()
                 return
 
-            method, path, _ = request_line.decode().split(" ", 2)
+            request_lines = request_data.decode().split("\r\n")
+            method, path, _ = request_lines[0].split(" ", 2)
+            # Leer headers para obtener content-length si existe
+            headers = {}
+            body = None
 
-            response = await self.handle_response(path, method)
+            for line in request_lines[1:]:
+                if not line.strip():
+                    break  # Fin de headers
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    headers[key.strip().lower()] = value.strip()
+
+            # Si hay body, leerlo
+            if "content-length" in headers:
+                content_length = int(headers["content-length"])
+                # Encontrar el inicio del body (doble CRLF)
+                body_start = request_data.find(b"\r\n\r\n") + 4
+                body = request_data[body_start : body_start + content_length].decode(
+                    "utf-8"
+                )
+
+            response = await self.handle_response(path, method, body)
 
             writer.write(response)
             await writer.drain()

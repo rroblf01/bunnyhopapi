@@ -10,6 +10,11 @@ class HealthCheckResponse(BaseModel):
     status: str
 
 
+class Room(BaseModel):
+    name: str
+    capacity: int
+
+
 async def hello() -> {200: HelloResponse, 202: HelloResponse}:
     return 200, {"message": "Hello, World!"}
 
@@ -22,11 +27,16 @@ async def helthcheck() -> {200: HealthCheckResponse}:
     return 200, {"status": "OK"}
 
 
+async def create_room(room: Room) -> {200: HelloResponse}:
+    return 200, {"message": "Room created"}
+
+
 def main():
     server = Server()
     server.add_route("/", "GET", hello)
     server.add_route("/", "POST", hello)
     server.add_route("/test", "GET", helthcheck)
+    server.add_route("/room/", "POST", create_room)
     server.add_route("/room/<room_id>", "GET", room_handler)
     server.run()
 
