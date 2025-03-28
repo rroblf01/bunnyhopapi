@@ -1,5 +1,7 @@
 from server.bunnyhopapi import Server, PathParam
 from pydantic import BaseModel
+import asyncio
+from typing import AsyncGenerator
 
 
 class HelloResponse(BaseModel):
@@ -15,7 +17,15 @@ class Room(BaseModel):
     capacity: int
 
 
+async def index() -> {200: HelloResponse}:
+    return 200, {"message": "Works"}
+
+
 async def hello() -> {200: HelloResponse, 202: HelloResponse}:
+    return 200, {"message": "Hello, World!"}
+
+
+def sync_hello() -> {200: HelloResponse, 202: HelloResponse}:
     return 200, {"message": "Hello, World!"}
 
 
@@ -27,19 +37,30 @@ async def helthcheck() -> {200: HealthCheckResponse}:
     return 200, {"status": "OK"}
 
 
-async def create_room(room: Room) -> {200: HelloResponse}:
+async def create_room(room: Room) -> AsyncGenerator[str, None]:
     name = room.name
     capacity = room.capacity
     return 200, {"message": f"Room {name} with capacity {capacity} created"}
 
 
+async def sse_events() -> {200: str}:
+    events = ["start", "progress", "complete"]
+    for event in events:
+        yield f"event: {event}\ndata: Processing {event}\n\n"
+        await asyncio.sleep(1.5)
+
+    yield "event: end\ndata: All done\n\n"
+
+
 def main():
-    server = Server()
-    server.add_route("/", "GET", hello)
-    server.add_route("/", "POST", hello)
+    server = Server(cors=True)
+    server.add_route("/", "GET", index)
+    server.add_route("/hello", "POST", hello)
+    server.add_route("/sync_hello", "GET", sync_hello)
     server.add_route("/test", "GET", helthcheck)
     server.add_route("/room/", "POST", create_room)
     server.add_route("/room/<room_id>", "GET", room_handler)
+    server.add_route("/sse/events", "GET", sse_events, content_type="text/event-stream")
     server.run()
 
 

@@ -41,6 +41,7 @@ class Server:
     host: str = "0.0.0.0"
     routes: dict = field(default_factory=dict)
     routes_with_params: dict = field(default_factory=dict)
+    cors: bool = False
 
     def _parse_path(self, path: str):
         param_pattern = re.compile(r"<(\w+)>")
@@ -119,6 +120,16 @@ class Server:
                         SWAGGER_JSON["components"]["schemas"][param_type.__name__] = (
                             param_type.schema()
                         )
+
+                if details["content_type"] == "text/event-stream":
+                    response_schema[200] = {
+                        "description": "Server-Sent Events stream",
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {"type": "string", "format": "binary"}
+                            }
+                        },
+                    }
 
                 # Procesar return types
                 if "return" in type_hints:
@@ -286,9 +297,12 @@ class Server:
                         )
 
         try:
-            response = await handler(**validated_params)
-            if asyncio.iscoroutine(response):
-                response = await response
+            result = handler(**validated_params)
+
+            if inspect.isasyncgen(result):
+                return "text/event-stream", 200, result
+
+            response = await result if asyncio.iscoroutine(result) else result
 
             status_code, response_data = response
 
@@ -308,10 +322,37 @@ class Server:
             )
 
     async def handle_response(self, path, method, body=None):
+        cors_headers = (
+            (
+                b"Access-Control-Allow-Origin: *\r\n"
+                b"Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                b"Access-Control-Allow-Headers: Content-Type\r\n"
+            )
+            if self.cors
+            else b""
+        )
+
         try:
             content_type, status_code, response_data = await self.execute_handler(
                 path, method, body
             )
+
+            if content_type == "text/event-stream" and inspect.isasyncgen(
+                response_data
+            ):
+                # Crear una respuesta inicial
+                response = (
+                    (
+                        b"HTTP/1.1 200 OK\r\n"
+                        b"Content-Type: text/event-stream\r\n"
+                        b"Cache-Control: no-cache\r\n"
+                        b"Connection: keep-alive\r\n"
+                    )
+                    + cors_headers
+                    + b"\r\n"
+                )
+
+                return response, response_data
 
             # Si es un error, asegurarnos que el content_type es application/json
             if status_code >= 400:
@@ -326,11 +367,13 @@ class Server:
             content_length = len(response_data)
 
             response = (
-                b"HTTP/1.1 " + str(status_code).encode("utf-8") + b"\r\n"
-                b"Content-Type: " + content_type.encode("utf-8") + b"\r\n"
-                b"Content-Length: " + str(content_length).encode("utf-8") + b"\r\n"
-                b"Connection: close\r\n"
-                b"\r\n"
+                (
+                    b"HTTP/1.1 " + str(status_code).encode("utf-8") + b"\r\n"
+                    b"Content-Type: " + content_type.encode("utf-8") + b"\r\n"
+                    b"Content-Length: " + str(content_length).encode("utf-8") + b"\r\n"
+                )
+                + cors_headers
+                + b"Connection: close\r\n\r\n"
             )
             return response + response_data
         except Exception as e:
@@ -339,12 +382,15 @@ class Server:
                 {"error": "Internal server error", "message": str(e)}
             ).encode("utf-8")
             return (
-                b"HTTP/1.1 500 Internal Server Error\r\n"
-                b"Content-Type: application/json\r\n"
-                b"Content-Length: " + str(len(error_data)).encode("utf-8") + b"\r\n"
-                b"Connection: close\r\n"
-                b"\r\n"
-            ) + error_data
+                (
+                    b"HTTP/1.1 500 Internal Server Error\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Content-Length: " + str(len(error_data)).encode("utf-8") + b"\r\n"
+                )
+                + cors_headers
+                + b"Connection: close\r\n\r\n"
+                + error_data
+            )
 
     async def handle_client(self, reader, writer):
         try:
@@ -365,6 +411,21 @@ class Server:
                     return
 
                 method, path = first_line[0], first_line[1]
+
+                if method.upper() == "OPTIONS":
+                    response = (
+                        b"HTTP/1.1 204 No Content\r\n"
+                        b"Access-Control-Allow-Origin: *\r\n"
+                        b"Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                        b"Access-Control-Allow-Headers: Content-Type\r\n"
+                        b"Content-Length: 0\r\n"
+                        b"Connection: close\r\n"
+                        b"\r\n"
+                    )
+                    writer.write(response)
+                    await writer.drain()
+                    await self._close_writer(writer)
+                    return
 
                 headers = {}
                 body = None
@@ -390,6 +451,23 @@ class Server:
 
                 try:
                     response = await self.handle_response(path, method, body)
+                    if isinstance(response, tuple) and len(response) == 2:
+                        headers, generator = response
+                        writer.write(headers)
+                        await writer.drain()
+
+                        try:
+                            async for chunk in generator:
+                                if isinstance(chunk, str):
+                                    chunk = chunk.encode("utf-8")
+                                writer.write(chunk)
+                                await writer.drain()
+                        except ConnectionResetError:
+                            logger.debug("Client disconnected SSE stream")
+                        finally:
+                            await self._close_writer(writer)
+                        return
+
                     writer.write(response)
                     await writer.drain()
                 except ConnectionResetError:

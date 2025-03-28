@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <ul id="messages">
+        
+    </ul>
+
+    <script>
+        const eventSource = new EventSource('http://127.0.0.1:8000/sse/events');
+    
+    eventSource.addEventListener('start', function(event) {
+        addMessage(`Start: ${event.data}`);
+    });
+    
+    eventSource.addEventListener('progress', function(event) {
+        addMessage(`Progress: ${event.data}`);
+    });
+    
+    eventSource.addEventListener('complete', function(event) {
+        addMessage(`Complete: ${event.data}`);
+    });
+    
+    eventSource.addEventListener('end', function(event) {
+        addMessage(`End: ${event.data}`);
+        eventSource.close();
+    });
+    
+    eventSource.onerror = function(event) {
+        console.error("EventSource failed:", event);
+        addMessage("Error occurred");
+        eventSource.close();
+    };
+    
+    function addMessage(message) {
+        const li = document.createElement('li');
+        li.textContent = message;
+        document.getElementById('messages').appendChild(li);
+    }
+    </script>
+</body>
+</html>
