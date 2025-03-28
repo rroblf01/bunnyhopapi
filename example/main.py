@@ -4,7 +4,7 @@ from bunnyhopapi import logger
 from bunnyhopapi.models import PathParam
 from pydantic import BaseModel
 import asyncio
-from typing import AsyncGenerator
+import os
 
 
 class HelloResponse(BaseModel):
@@ -73,16 +73,20 @@ async def ws_echo(connection_id, message):
         await asyncio.sleep(0.2)
 
 
-async def endpoint_with_middleware(middleware=None) -> {200: HelloResponse}:
-    return 200, {"message": f"middleware: {middleware}"}
+async def endpoint_with_middleware(*args, **kwags) -> {200: HelloResponse}:
+    return 200, {"message": f"middleware: {kwags.get('fake_client')}"}
 
 
-async def endpoint_middleware():
-    return {"example": "middleware"}
+async def endpoint_middleware(endpoint, *args, **kwargs):
+    logger.info("before endpoint")
+    fake_client = {"middleware": "fake_client"}
+    response = await endpoint(fake_client=fake_client, *args, **kwargs)
+    logger.info("after endpoint")
+    return response
 
 
 def main():
-    server = Server(cors=True)
+    server = Server(cors=True, port=int(os.getenv("PORT", "8000")))
     hello_router = Router(prefix="/hello")
     hello_router.add_route("/<name>", "GET", hello_name)
     hello_router.add_route("/<name>/last_name/<last_name>", "GET", hello_full_name)
