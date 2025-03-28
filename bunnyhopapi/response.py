@@ -1,7 +1,6 @@
 import json
 from typing import Union, AsyncGenerator, Tuple
 import inspect
-from . import logger
 
 
 class ResponseHandler:

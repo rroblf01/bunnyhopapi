@@ -1,7 +1,7 @@
 import json
 import inspect
 from . import logger
-from typing import Dict, Any, Optional, Type, get_type_hints
+from typing import Dict, Optional, get_type_hints
 import asyncio
 from pydantic import BaseModel
 from bunnyhopapi.models import PathParam
