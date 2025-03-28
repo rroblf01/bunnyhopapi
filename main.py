@@ -1,4 +1,5 @@
-from server.bunnyhopapi import Server, PathParam
+from bunnyhopapi.server import Server
+from bunnyhopapi.models import PathParam
 from pydantic import BaseModel
 import asyncio
 from typing import AsyncGenerator
@@ -50,6 +51,11 @@ async def sse_events() -> {200: str}:
         await asyncio.sleep(1.5)
 
     yield "event: end\ndata: All done\n\n"
+
+
+async def ws_echo(websocket):
+    async for message in websocket:
+        await websocket.send(f"Echo: {message}")
 
 
 def main():
