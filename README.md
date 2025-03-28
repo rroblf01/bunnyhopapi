@@ -137,6 +137,29 @@ async def hello() -> {200: HelloResponse, 404: ErrorResponse}:
         return 404, ErrorResponse(error="Not found")
 ```
 
+## Performance
+
+The BunnyHop API server is highly efficient and can handle a large number of requests per second. Below is an example of a performance test using `wrk`:
+
+```bash
+wrk -t12 -c400 -d30s http://127.0.0.1:8000/
+```
+
+Results:
+
+```
+Running 30s test @ http://127.0.0.1:8000/
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    16.62ms   32.06ms 864.88ms   98.20%
+    Req/Sec   808.15    479.60     3.45k    67.91%
+  286177 requests in 30.10s, 63.59MB read
+Requests/sec:   9508.94
+Transfer/sec:      2.11MB
+```
+
+This demonstrates that the server can handle approximately **9508.94 requests per second** under the specified test conditions.
+
 ## Examples
 
 See the example in the Quick Start section or check the full example in the repository.
