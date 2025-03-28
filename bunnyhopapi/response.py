@@ -24,7 +24,6 @@ class ResponseHandler:
         status_code: int,
         response_data: Union[dict, str, bytes, AsyncGenerator],
     ) -> Union[Tuple[bytes, AsyncGenerator], bytes]:
-        # Asegurarse que response_data es siempre el tipo correcto
         if isinstance(response_data, dict):
             response_data = json.dumps(response_data).encode("utf-8")
         elif isinstance(response_data, str):

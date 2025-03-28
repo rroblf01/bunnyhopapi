@@ -3,6 +3,7 @@ import re
 import hashlib
 import base64
 import struct
+import uuid
 from typing import Dict, Callable
 
 from .models import ServerConfig
@@ -10,7 +11,6 @@ from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .request import RequestParser
 from .response import ResponseHandler
 from .handlers import RouteHandler
-from .client import ClientHandler
 
 from . import logger
 
@@ -23,7 +23,6 @@ class Server(ServerConfig):
         self.request_parser = RequestParser(self.routes, self.routes_with_params)
         self.response_handler = ResponseHandler(self.cors)
         self.route_handler = RouteHandler(self.routes, self.routes_with_params)
-        self.client_handler = ClientHandler()
         self.websocket_handlers: Dict[
             str, Callable
         ] = {}  # Almacena los handlers de WebSocket
@@ -51,8 +50,12 @@ class Server(ServerConfig):
         if len(header) < 2:
             raise ConnectionResetError("Incomplete frame header")
 
-        fin = (header[0] & 0x80) != 0
         opcode = header[0] & 0x0F
+
+        if opcode == 0x8:  # Close frame
+            logger.info("Received close frame")
+            return opcode, None
+
         masked = (header[1] & 0x80) != 0
         payload_len = header[1] & 0x7F
 
@@ -82,8 +85,8 @@ class Server(ServerConfig):
         """
         message_bytes = message.encode("utf-8")
         frame = bytearray()
-        frame.append(0x81)  # FIN + Opcode (texto)
-        frame.append(len(message_bytes))  # Payload length
+        frame.append(0x81)
+        frame.append(len(message_bytes))
 
         frame.extend(message_bytes)
         writer.write(frame)
@@ -112,14 +115,12 @@ class Server(ServerConfig):
     async def handle_response(self, path, method, body=None):
         handler_response = await self.route_handler.execute_handler(path, method, body)
 
-        # Si es una respuesta de error directa
         if isinstance(handler_response, tuple) and len(handler_response) == 3:
             content_type, status_code, response_data = handler_response
             return self.response_handler.prepare_response(
                 content_type, status_code, response_data
             )
 
-        # Si es un diccionario con la estructura nueva
         if isinstance(handler_response, dict):
             return self.response_handler.prepare_response(
                 handler_response["content_type"],
@@ -127,7 +128,6 @@ class Server(ServerConfig):
                 handler_response["response_data"],
             )
 
-        # Respuesta por defecto para errores desconocidos
         return self.response_handler.prepare_response(
             "application/json",
             500,
@@ -144,7 +144,6 @@ class Server(ServerConfig):
             logger.info("No Sec-WebSocket-Key found in headers")
             return
 
-        # Handshake (igual que antes)
         accept_key = base64.b64encode(
             hashlib.sha1(
                 key.encode() + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -161,22 +160,25 @@ class Server(ServerConfig):
         writer.write(response)
         await writer.drain()
 
-        # Manejo de mensajes WebSocket
+        connection_id = str(uuid.uuid4())
+        logger.info(f"WebSocket connection established with ID: {connection_id}")
+
         try:
             while True:
                 opcode, message = await self._read_websocket_frame(reader)
                 if opcode == 0x8:  # Close frame
                     break
 
-                # Llama al handler (ej: ws_echo) con el mensaje recibido
-                async for response in self.websocket_handlers[path](message):
+                async for response in self.websocket_handlers[path](
+                    connection_id, message
+                ):
                     await self._write_websocket_frame(writer, response)
 
         except (ConnectionResetError, asyncio.IncompleteReadError) as e:
             logger.warning(f"WebSocket connection error: {e}")
             logger.info("WebSocket connection closed abruptly")
         finally:
-            logger.info("Closing WebSocket connection")
+            logger.info(f"Closing WebSocket connection {connection_id}")
             writer.close()
             await writer.wait_closed()
 

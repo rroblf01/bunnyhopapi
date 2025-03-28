@@ -55,12 +55,12 @@ async def sse_events() -> {200: str}:
     yield "event: end\ndata: All done\n\n"
 
 
-async def ws_echo(websocket):
-    logger.info(f"aux {websocket}")
+async def ws_echo(connection_id, message):
+    logger.info(f"connection: {connection_id}, message: {message}")
 
     for i in range(10):
         yield f"event: message\ndata: {i}\n\n"
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(0.2)
 
 
 def main():
