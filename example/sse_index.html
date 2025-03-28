@@ -11,7 +11,8 @@
     </ul>
 
     <script>
-        const eventSource = new EventSource('http://127.0.0.1:8000/sse/events');
+        const host = window.location.hostname || "localhost:8000";
+        const eventSource = new EventSource(`http://${host}/sse/events`);
     
     eventSource.addEventListener('start', function(event) {
         addMessage(`Start: ${event.data}`);
