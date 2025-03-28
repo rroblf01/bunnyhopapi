@@ -1,8 +1,10 @@
 from bunnyhopapi.server import Server
+from bunnyhopapi import logger
 from bunnyhopapi.models import PathParam
 from pydantic import BaseModel
 import asyncio
 from typing import AsyncGenerator
+from websockets import WebSocketServerProtocol
 
 
 class HelloResponse(BaseModel):
@@ -46,7 +48,7 @@ async def create_room(room: Room) -> AsyncGenerator[str, None]:
 
 async def sse_events() -> {200: str}:
     events = ["start", "progress", "complete"]
-    for event in events:
+    async for event in events:
         yield f"event: {event}\ndata: Processing {event}\n\n"
         await asyncio.sleep(1.5)
 
@@ -54,8 +56,11 @@ async def sse_events() -> {200: str}:
 
 
 async def ws_echo(websocket):
-    async for message in websocket:
-        await websocket.send(f"Echo: {message}")
+    logger.info(f"aux {websocket}")
+
+    for i in range(10):
+        yield f"event: message\ndata: {i}\n\n"
+        await asyncio.sleep(1.5)
 
 
 def main():
@@ -67,6 +72,8 @@ def main():
     server.add_route("/room/", "POST", create_room)
     server.add_route("/room/<room_id>", "GET", room_handler)
     server.add_route("/sse/events", "GET", sse_events, content_type="text/event-stream")
+
+    server.add_websocket_route("/ws/chat", ws_echo)
     server.run()
 
 

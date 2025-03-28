@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Client</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <input type="text" id="messageInput">
+    <button onclick="sendMessage()">Send</button>
+    <div id="output"></div>
+
+    <script>
+        let socket;
+        const host = window.location.hostname || '127.0.0.1';
+        const wsUrl = `ws://${host}:8000/ws/chat`;
+        
+        function connect() {
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(e) {
+                log("Connected to WebSocket server");
+            };
+            
+            socket.onmessage = function(event) {
+                log("Received: " + event.data);
+            };
+            
+            socket.onclose = function(event) {
+                log("Connection closed");
+            };
+            
+            socket.onerror = function(error) {
+                log("Error: " + error.message);
+            };
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.close();
+            }
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const message = input.value;
+            
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                log("Not connected");
+                return;
+            }
+            
+            socket.send(message);
+            input.value = "";
+        }
+        
+        function log(message) {
+            const output = document.getElementById("output");
+            output.innerHTML += `<p>${message}</p>`;
+        }
+    </script>
+</body>
+</html>
