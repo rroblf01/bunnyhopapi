@@ -1,3 +1,6 @@
+Here's the updated README.md incorporating the Router functionality while maintaining all the existing information:
+
+```markdown
 # BunnyHop API - HTTP Server Framework
 
 BunnyHop is a lightweight asynchronous HTTP server framework built with Python's asyncio. It provides a simple way to create RESTful APIs with support for WebSockets and Server-Sent Events (SSE).
@@ -12,6 +15,7 @@ BunnyHop is a lightweight asynchronous HTTP server framework built with Python's
 - 🏗️ Pydantic model validation
 - 📌 Path parameter handling
 - 🔄 Sync and async handler support
+- � Router support for modular API design
 
 ## Installation
 
@@ -23,6 +27,7 @@ pip install bunnyhopapi
 
 ```python
 from bunnyhopapi.server import Server
+from bunnyhopapi.router import Router
 from bunnyhopapi.models import PathParam
 from pydantic import BaseModel
 import asyncio
@@ -31,18 +36,22 @@ import asyncio
 class HelloResponse(BaseModel):
     message: str
 
-# Define your handlers
+# Create a router
+hello_router = Router(prefix="/hello")
+
+# Add routes to the router
+@hello_router.route("/world", "GET")
 async def hello() -> {200: HelloResponse}:
     return 200, {"message": "Hello, World!"}
 
-async def room_handler(room_id: PathParam(int)) -> {200: HelloResponse}:
-    return 200, {"message": f"Room ID is {room_id}"}
+@hello_router.route("/<name>", "GET")
+async def hello_name(name: PathParam(str)) -> {200: HelloResponse}:
+    return 200, {"message": f"Hello, {name}!"}
 
 # Create and configure server
 def main():
     server = Server(cors=True)
-    server.add_route("/hello", "GET", hello)
-    server.add_route("/room/<room_id>", "GET", room_handler)
+    server.include_router(hello_router)  # Include the router
     server.run()
 
 if __name__ == "__main__":
@@ -99,6 +108,28 @@ async def ws_echo(connection_id, message):
         await asyncio.sleep(0.2)
 ```
 
+## Router Usage
+
+Routers allow you to organize your API endpoints modularly:
+
+```python
+from bunnyhopapi.router import Router
+
+# Create router with prefix
+user_router = Router(prefix="/users")
+
+# Add routes to router (decorator style)
+@user_router.route("/", "GET")
+async def get_users() -> {200: UserListResponse}:
+    return 200, {"users": [...]}
+
+# Or traditional style
+user_router.add_route("/<user_id>", "GET", get_user)
+
+# Include router in main server
+server.include_router(user_router)
+```
+
 ## Server Configuration
 
 ```python
@@ -111,6 +142,7 @@ server = Server(
 
 ## Adding Routes
 
+### Directly to server
 ```python
 server.add_route(
     path="/hello",
@@ -123,6 +155,13 @@ server.add_websocket_route(
     path="/ws/chat",
     handler=ws_echo
 )
+```
+
+### Via Router
+```python
+router = Router(prefix="/api")
+router.add_route("/test", "GET", test_handler)
+server.include_router(router)
 ```
 
 ## Response Types
@@ -162,8 +201,50 @@ This demonstrates that the server can handle approximately **9508.94 requests pe
 
 ## Examples
 
-See the example in the Quick Start section or check the full example in the repository.
+See the example in the Quick Start section or check the full example below:
+
+```python
+from bunnyhopapi.server import Server
+from bunnyhopapi.router import Router
+from bunnyhopapi.models import PathParam
+from pydantic import BaseModel
+import asyncio
+
+class HelloResponse(BaseModel):
+    message: str
+
+class HealthCheckResponse(BaseModel):
+    status: str
+
+class Room(BaseModel):
+    name: str
+    capacity: int
+
+# Create routers
+api_router = Router(prefix="/api")
+hello_router = Router(prefix="/hello")
+
+# Add routes to routers
+@hello_router.route("/world", "GET")
+async def hello() -> {200: HelloResponse}:
+    return 200, {"message": "Hello, World!"}
+
+@api_router.route("/health", "GET")
+async def healthcheck() -> {200: HealthCheckResponse}:
+    return 200, {"status": "OK"}
+
+# Create and configure server
+def main():
+    server = Server(cors=True)
+    server.include_router(hello_router)
+    server.include_router(api_router)
+    server.run()
+
+if __name__ == "__main__":
+    main()
+```
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+```

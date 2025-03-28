@@ -1,4 +1,5 @@
 from bunnyhopapi.server import Server
+from bunnyhopapi.router import Router
 from bunnyhopapi import logger
 from bunnyhopapi.models import PathParam
 from pydantic import BaseModel
@@ -27,6 +28,10 @@ async def hello() -> {200: HelloResponse, 202: HelloResponse}:
     return 200, {"message": "Hello, World!"}
 
 
+async def hello_name(name: PathParam(str)) -> {200: HelloResponse, 202: HelloResponse}:
+    return 200, {"message": f"Hello, {name}!"}
+
+
 def sync_hello() -> {200: HelloResponse, 202: HelloResponse}:
     return 200, {"message": "Hello, World!"}
 
@@ -45,7 +50,7 @@ async def create_room(room: Room) -> AsyncGenerator[str, None]:
     return 200, {"message": f"Room {name} with capacity {capacity} created"}
 
 
-async def sse_events() -> {200: str}:
+async def sse_events():
     events = ["start", "progress", "complete"]
     for event in events:
         yield f"event: {event}\ndata: Processing {event}\n\n"
@@ -64,8 +69,12 @@ async def ws_echo(connection_id, message):
 
 def main():
     server = Server(cors=True)
+    hello_router = Router(prefix="/hello")
+    hello_router.add_route("/world", "GET", hello)
+    hello_router.add_route("/<name>", "GET", hello_name)
+
+    server.include_router(hello_router)
     server.add_route("/", "GET", index)
-    server.add_route("/hello", "POST", hello)
     server.add_route("/sync_hello", "GET", sync_hello)
     server.add_route("/test", "GET", helthcheck)
     server.add_route("/room/", "POST", create_room)

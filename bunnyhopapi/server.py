@@ -1,19 +1,48 @@
 import asyncio
-from typing import Dict, Callable
+from typing import Dict
+from .router import Router
 import re
 from .models import ServerConfig
 from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .client_handler import ClientHandler
 
 from . import logger
+from dataclasses import dataclass, field
 
 
+@dataclass
 class Server(ServerConfig):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.routes: Dict = {}
-        self.routes_with_params: Dict = {}
-        self.websocket_handlers: Dict[str, Callable] = {}
+    routes: Dict = field(default_factory=dict)
+    routes_with_params: Dict = field(default_factory=dict)
+    websocket_handlers: Dict = field(default_factory=dict)
+
+    def include_router(self, router: Router):
+        logger.info(f"Adding router with prefix {router.prefix}")
+
+        for path, methods in router.routes.items():
+            # Normalizar el path completo
+            full_path = path
+            if not full_path.startswith("/"):
+                full_path = "/" + full_path
+            full_path = re.sub(r"/+", "/", full_path)
+
+            if full_path not in self.routes:
+                self.routes[full_path] = {}
+                if full_path in router.routes_with_params:
+                    self.routes_with_params[full_path] = router.routes_with_params[
+                        full_path
+                    ]
+
+            for method, handler in methods.items():
+                self.routes[full_path][method] = {
+                    "handler": handler,
+                    "content_type": "application/json",
+                }
+
+        for path, handler in router.websocket_handlers.items():
+            self.websocket_handlers[path] = handler
+
+        logger.info(f"Router with prefix {router.prefix} added successfully")
 
     def add_route(self, path, method, handler, content_type="application/json"):
         logger.info(f"Adding route {method} {path}")

@@ -25,6 +25,12 @@ class SwaggerGenerator:
     @staticmethod
     def generate_path_item(path: str, methods: dict):
         swagger_path = re.sub(r"<(\w+)>", r"{\1}", path)
+
+        if not swagger_path.startswith("/"):
+            swagger_path = "/" + swagger_path
+
+        swagger_path = re.sub(r"/+", "/", swagger_path)
+
         SWAGGER_JSON["paths"][swagger_path] = {}
 
         for method, details in methods.items():
@@ -42,16 +48,10 @@ class SwaggerGenerator:
         parameters = []
         request_body = None
 
-        # Process path parameters
         parameters.extend(SwaggerGenerator._process_path_params(type_hints))
-
-        # Process body parameters
         request_body = SwaggerGenerator._process_body_params(type_hints)
-
-        # Process response types
         response_schema = SwaggerGenerator._process_response_types(type_hints)
 
-        # Build operation
         operation = {
             "summary": f"Handler for {method} {path}",
             "responses": response_schema
@@ -97,7 +97,6 @@ class SwaggerGenerator:
                 and issubclass(param_type, BaseModel)
                 and not isinstance(param_type, PathParam)
             ):
-                # Add model to components if not already there
                 if "components" not in SWAGGER_JSON:
                     SWAGGER_JSON["components"] = {"schemas": {}}
                 SWAGGER_JSON["components"]["schemas"][param_type.__name__] = (
