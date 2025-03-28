@@ -4,7 +4,6 @@ from bunnyhopapi.models import PathParam
 from pydantic import BaseModel
 import asyncio
 from typing import AsyncGenerator
-from websockets import WebSocketServerProtocol
 
 
 class HelloResponse(BaseModel):
