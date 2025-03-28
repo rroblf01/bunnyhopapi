@@ -47,7 +47,7 @@ async def create_room(room: Room) -> AsyncGenerator[str, None]:
 
 async def sse_events() -> {200: str}:
     events = ["start", "progress", "complete"]
-    async for event in events:
+    for event in events:
         yield f"event: {event}\ndata: Processing {event}\n\n"
         await asyncio.sleep(1.5)
 

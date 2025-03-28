@@ -83,7 +83,6 @@ class RouteHandler:
 
         try:
             result = handler(**validated_params)
-            response = await result if asyncio.iscoroutine(result) else result
 
             if inspect.isasyncgen(result):
                 return {
@@ -92,6 +91,7 @@ class RouteHandler:
                     "response_data": result,
                 }
 
+            response = await result if asyncio.iscoroutine(result) else result
             status_code, response_data = response
             return {
                 "content_type": content_type,

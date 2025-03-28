@@ -23,12 +23,13 @@ class ResponseHandler:
         status_code: int,
         response_data: Union[dict, str, bytes, AsyncGenerator],
     ) -> Union[Tuple[bytes, AsyncGenerator], bytes]:
+        if content_type == "text/event-stream" and inspect.isasyncgen(response_data):
+            return self._prepare_sse_response(response_data)
+
         if isinstance(response_data, dict):
             response_data = json.dumps(response_data).encode("utf-8")
         elif isinstance(response_data, str):
             response_data = response_data.encode("utf-8")
-        if content_type == "text/event-stream" and inspect.isasyncgen(response_data):
-            return self._prepare_sse_response(response_data)
 
         # Handle error responses
         if status_code >= 400:
