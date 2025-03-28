@@ -32,6 +32,12 @@ async def hello_name(name: PathParam(str)) -> {200: HelloResponse, 202: HelloRes
     return 200, {"message": f"Hello, {name}!"}
 
 
+async def hello_full_name(
+    name: PathParam(str), last_name: PathParam(str)
+) -> {200: HelloResponse, 202: HelloResponse}:
+    return 200, {"message": f"Name {name}, last name {last_name}!"}
+
+
 def sync_hello() -> {200: HelloResponse, 202: HelloResponse}:
     return 200, {"message": "Hello, World!"}
 
@@ -44,7 +50,7 @@ async def helthcheck() -> {200: HealthCheckResponse}:
     return 200, {"status": "OK"}
 
 
-async def create_room(room: Room) -> AsyncGenerator[str, None]:
+async def create_room(room: Room) -> {200: HealthCheckResponse}:
     name = room.name
     capacity = room.capacity
     return 200, {"message": f"Room {name} with capacity {capacity} created"}
@@ -67,13 +73,26 @@ async def ws_echo(connection_id, message):
         await asyncio.sleep(0.2)
 
 
+async def endpoint_with_middleware(middleware=None) -> {200: HelloResponse}:
+    return 200, {"message": f"middleware: {middleware}"}
+
+
+async def endpoint_middleware():
+    return {"example": "middleware"}
+
+
 def main():
     server = Server(cors=True)
     hello_router = Router(prefix="/hello")
-    hello_router.add_route("/world", "GET", hello)
     hello_router.add_route("/<name>", "GET", hello_name)
+    hello_router.add_route("/<name>/last_name/<last_name>", "GET", hello_full_name)
+
+    other_router = Router(prefix="/other", middleware=endpoint_middleware)
+    other_router.add_route("/endpoint_with_middleware", "GET", endpoint_with_middleware)
 
     server.include_router(hello_router)
+    server.include_router(other_router)
+
     server.add_route("/", "GET", index)
     server.add_route("/sync_hello", "GET", sync_hello)
     server.add_route("/test", "GET", helthcheck)

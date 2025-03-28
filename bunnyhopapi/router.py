@@ -10,12 +10,15 @@ class Router:
     routes: Dict[str, Dict[str, Callable]] = field(default_factory=dict)
     routes_with_params: Dict[str, re.Pattern] = field(default_factory=dict)
     websocket_handlers: Dict[str, Callable] = field(default_factory=dict)
+    middleware: Callable = field(default=None)
+
+    def include_router(self, router: "Router"):
+        self.routes.update(router.routes)
+        self.routes_with_params.update(router.routes_with_params)
+        self.websocket_handlers.update(router.websocket_handlers)
 
     def add_route(self, path: str, method: str, handler: Callable):
         logger.info(f"Adding route {method} {path}")
-        if self.routes is None:
-            self.routes = {}
-            self.routes_with_params = {}
 
         path = path.lstrip("/")
         full_path = f"/{self.prefix.lstrip('/')}/{path}".replace("//", "/")
@@ -37,7 +40,5 @@ class Router:
 
     def add_websocket_route(self, path: str, handler: Callable):
         logger.info(f"Adding websocket route {path}")
-        if self.websocket_handlers is None:
-            self.websocket_handlers = {}
         self.websocket_handlers[path] = handler
         logger.info(f"Websocket route {path} added successfully")

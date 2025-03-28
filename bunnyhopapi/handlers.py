@@ -59,6 +59,7 @@ class RouteHandler:
     ):
         handler = route_info["handler"]
         content_type = route_info["content_type"]
+        middleware = route_info.get("middleware")
         type_hints = get_type_hints(handler)
         validated_params = self._validate_params(
             route_info.get("params", {}), type_hints
@@ -82,6 +83,10 @@ class RouteHandler:
             validated_params.update(body_validation["validated_params"])
 
         try:
+            if middleware:
+                middleware_response = await middleware()
+                validated_params.update({"middleware": middleware_response})
+
             result = handler(**validated_params)
 
             if inspect.isasyncgen(result):

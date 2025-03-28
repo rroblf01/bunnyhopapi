@@ -37,6 +37,7 @@ class Server(ServerConfig):
                 self.routes[full_path][method] = {
                     "handler": handler,
                     "content_type": "application/json",
+                    "middleware": router.middleware,
                 }
 
         for path, handler in router.websocket_handlers.items():
