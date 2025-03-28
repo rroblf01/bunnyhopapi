@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 setup(
     name="bunnyhopapi",
     version="0.1.0",
-    description="Add your description here",
+    description="A simple, easy and fast http server for python",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="Your Name",
-    author_email="your.email@example.com",
-    url="https://github.com/yourusername/bunnyhopapi",  # Cambia esto si tienes un repositorio
+    author="Ricardo Robles Fernández",
+    author_email="ricardo.r.f@hotmail.com",
+    url="https://github.com/rroblf01/bunnyhopapi",  # Cambia esto si tienes un repositorio
     packages=find_packages(),
     python_requires=">=3.13",
     install_requires=[
@@ -18,6 +18,7 @@ setup(
     extras_require={
         "lint": ["ruff==0.11.2"],
     },
+    license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
