@@ -83,11 +83,10 @@ class RouteHandler:
             validated_params.update(body_validation["validated_params"])
 
         try:
-            if middleware:
-                middleware_response = await middleware()
-                validated_params.update({"middleware": middleware_response})
-
-            result = handler(**validated_params)
+            if not middleware:
+                result = handler(**validated_params)
+            else:
+                result = middleware(endpoint=handler, **validated_params)
 
             if inspect.isasyncgen(result):
                 return {
