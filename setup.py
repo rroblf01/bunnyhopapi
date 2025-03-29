@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="bunnyhopapi",
-    version="0.2.0",
+    version="0.2.1",
     description="A simple, easy and fast http server for python",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -10,7 +10,7 @@ setup(
     author_email="ricardo.r.f@hotmail.com",
     url="https://github.com/rroblf01/bunnyhopapi",
     packages=find_packages(),
-    python_requires=">=3.13",
+    python_requires=">=3.9",
     install_requires=[
         "pydantic==2.11.0",
     ],
