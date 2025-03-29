@@ -1,5 +1,3 @@
-Here's the updated README.md incorporating the Router functionality while maintaining all the existing information:
-
 ```markdown
 # BunnyHop API - HTTP Server Framework
 
@@ -129,6 +127,67 @@ user_router.add_route("/<user_id>", "GET", get_user)
 # Include router in main server
 server.include_router(user_router)
 ```
+
+## Router-Level Middleware
+
+BunnyHop API supports middleware at the router level, allowing you to apply specific middleware to all endpoints within a router. This is useful for modularizing middleware logic and applying it only where needed.
+
+### Example
+
+```python
+from bunnyhopapi.router import Router
+from bunnyhopapi import logger
+
+# Define middleware
+async def log_request_middleware(endpoint, *args, **kwargs):
+    logger.info(f"START log_request_middleware {endpoint}")
+    response = await endpoint(*args, **kwargs)
+    logger.info("END log_request_middleware")
+    return response
+
+# Create a router with middleware
+router_with_middleware = Router(prefix="/secure", middleware=log_request_middleware)
+
+@router_with_middleware.route("/data", "GET")
+async def secure_data():
+    return 200, {"message": "This is secure data"}
+```
+
+In this example, the `log_request_middleware` will be applied to all routes within the `/secure` router.
+
+## Multiple Routers for the Same Endpoint
+
+BunnyHop API allows you to include multiple routers that can define routes for the same endpoint. This enables you to layer functionality or organize routes modularly.
+
+### Example
+
+```python
+from bunnyhopapi.router import Router
+
+# Define two routers
+router_a = Router(prefix="/shared")
+router_b = Router(prefix="/shared")
+
+@router_a.route("/endpoint", "GET")
+async def handler_a():
+    return 200, {"message": "Response from Router A"}
+
+@router_b.route("/endpoint", "GET")
+async def handler_b():
+    return 200, {"message": "Response from Router B"}
+
+# Include both routers in the server
+def main():
+    server = Server(cors=True)
+    server.include_router(router_a)
+    server.include_router(router_b)
+    server.run()
+
+if __name__ == "__main__":
+    main()
+```
+
+In this example, both `router_a` and `router_b` define a route for `/shared/endpoint`. The server will resolve the route based on the order in which the routers are included.
 
 ## Server Configuration
 
