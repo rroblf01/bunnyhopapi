@@ -34,7 +34,10 @@ class SwaggerGenerator:
         SWAGGER_JSON["paths"][swagger_path] = {}
 
         for method, details in methods.items():
-            handler = details["handler"]
+            handler = details.get("handler")
+            if not callable(handler):
+                raise TypeError(f"{handler} is not a callable object.")
+
             type_hints = get_type_hints(handler)
 
             operation = SwaggerGenerator._generate_operation(

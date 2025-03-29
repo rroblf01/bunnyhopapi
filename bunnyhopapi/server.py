@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict
+from typing import Dict, Callable
 from .router import Router
 import re
 from .models import ServerConfig
@@ -17,8 +17,6 @@ class Server(ServerConfig):
     websocket_handlers: Dict = field(default_factory=dict)
 
     def include_router(self, router: Router):
-        logger.info(f"Adding router with prefix {router.prefix}")
-
         for path, methods in router.routes.items():
             # Normalizar el path completo
             full_path = path
@@ -33,26 +31,39 @@ class Server(ServerConfig):
                         full_path
                     ]
 
-            for method, handler in methods.items():
+            for method, content in methods.items():
+                if content.get("middleware"):
+                    middleware = content.get("middleware")
+                else:
+                    middleware = None
+
                 self.routes[full_path][method] = {
-                    "handler": handler,
-                    "content_type": "application/json",
-                    "middleware": router.middleware,
+                    "handler": content.get("handler"),
+                    "content_type": content.get("content_type"),
+                    "middleware": middleware,
                 }
 
         for path, handler in router.websocket_handlers.items():
             self.websocket_handlers[path] = handler
 
-        logger.info(f"Router with prefix {router.prefix} added successfully")
-
-    def add_route(self, path, method, handler, content_type="application/json"):
-        logger.info(f"Adding route {method} {path}")
+    def add_route(
+        self,
+        path,
+        method,
+        handler: Callable,
+        middleware: Callable = None,
+        content_type="application/json",
+    ):
         if path not in self.routes:
             self.routes[path] = {}
             if "<" in path:
                 self.routes_with_params[path] = self._compile_route_pattern(path)
 
-        self.routes[path][method] = {"handler": handler, "content_type": content_type}
+        self.routes[path][method] = {
+            "handler": handler,
+            "middelware": middleware,
+            "content_type": content_type,
+        }
 
     def add_websocket_route(self, path, handler):
         logger.info(f"Adding websocket route {path}")

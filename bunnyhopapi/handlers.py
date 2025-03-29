@@ -5,6 +5,7 @@ from typing import Dict, Optional, get_type_hints
 import asyncio
 from pydantic import BaseModel
 from bunnyhopapi.models import PathParam
+from functools import partial
 
 
 class RouteHandler:
@@ -86,7 +87,8 @@ class RouteHandler:
             if not middleware:
                 result = handler(**validated_params)
             else:
-                result = middleware(endpoint=handler, **validated_params)
+                # Aquí es donde se ejecuta la cadena de middlewares
+                result = middleware(**validated_params)
 
             if inspect.isasyncgen(result):
                 return {
@@ -96,7 +98,15 @@ class RouteHandler:
                 }
 
             response = await result if asyncio.iscoroutine(result) else result
-            status_code, response_data = response
+
+            # Asegurarse de que la respuesta sea una tupla (status_code, response_data)
+            if isinstance(response, tuple) and len(response) == 2:
+                status_code, response_data = response
+            else:
+                raise ValueError(
+                    "Handler must return a tuple of (status_code, response_data)"
+                )
+
             return {
                 "content_type": content_type,
                 "status_code": status_code,
