@@ -1,136 +1,19 @@
 import asyncio
-from typing import Dict, Callable, AsyncGenerator
-from .router import Router
-import re
-from .models import ServerConfig
+from .models import ServerConfig, RouterBase
 from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .client_handler import ClientHandler
-from functools import partial
-import inspect
 from . import logger
-from dataclasses import dataclass, field
 import uvloop
+from dataclasses import dataclass
 
 
 @dataclass
-class Server(ServerConfig):
-    routes: Dict = field(default_factory=dict)
-    routes_with_params: Dict = field(default_factory=dict)
-    websocket_handlers: Dict = field(default_factory=dict)
-    middleware: Callable = None
+class Router(RouterBase):
+    pass
 
-    def include_router(self, router: Router):
-        for path, methods in router.routes.items():
-            full_path = path
-            if not full_path.startswith("/"):
-                full_path = "/" + full_path
-            full_path = re.sub(r"/+", "/", full_path)
 
-            if full_path not in self.routes:
-                self.routes[full_path] = {}
-                if full_path in router.routes_with_params:
-                    self.routes_with_params[full_path] = router.routes_with_params[
-                        full_path
-                    ]
-
-            for method, content in methods.items():
-                handler = content.get("handler")
-                middleware = content.get("middleware")
-
-                if self.middleware and middleware:
-                    final_middleware = partial(
-                        self.middleware,
-                        endpoint=middleware,
-                    )
-                elif self.middleware:
-                    final_middleware = partial(self.middleware, endpoint=handler)
-                elif middleware:
-                    final_middleware = middleware
-                else:
-                    final_middleware = None
-
-                self.routes[full_path][method] = {
-                    "handler": handler,
-                    "content_type": content.get("content_type"),
-                    "middleware": final_middleware,
-                }
-
-        for path, handler in router.websocket_handlers.items():
-            if self.middleware:
-                final_handler = partial(self.middleware, endpoint=handler)
-            else:
-                final_handler = handler
-
-            self.websocket_handlers[path] = final_handler
-
-    def add_route(
-        self,
-        path,
-        method,
-        handler: Callable,
-        middleware: Callable = None,
-        content_type="application/json",
-    ):
-        if path not in self.routes:
-            self.routes[path] = {}
-            if "<" in path:
-                self.routes_with_params[path] = self._compile_route_pattern(path)
-
-        if middleware and self.middleware:
-            final_middleware = partial(
-                self.middleware,
-                endpoint=middleware,
-            )
-        elif self.middleware:
-            final_middleware = partial(self.middleware, endpoint=handler)
-        elif middleware:
-            final_middleware = middleware
-        else:
-            final_middleware = None
-
-        self.routes[path][method] = {
-            "handler": handler,
-            "middleware": final_middleware,
-            "content_type": content_type,
-        }
-
-    def add_websocket_route(self, path, handler, middleware: AsyncGenerator = None):
-        logger.info(f"Adding websocket route {path}")
-        logger.info(
-            f"isasyncgen self.middleware: {inspect.isasyncgenfunction(self.middleware)} {self.middleware}"
-        )
-        logger.info(
-            f"isasyncgen middleware: {inspect.isasyncgenfunction(middleware)} {middleware}"
-        )
-        class_middleware = (
-            self.middleware if inspect.isasyncgenfunction(self.middleware) else None
-        )
-        method_middleware = (
-            middleware if inspect.isasyncgenfunction(middleware) else None
-        )
-        if class_middleware and method_middleware:
-            final_middleware = partial(
-                class_middleware,
-                endpoint=partial(method_middleware, endpoint=handler),
-            )
-        elif class_middleware:
-            final_middleware = partial(class_middleware, endpoint=handler)
-
-        elif method_middleware:
-            final_middleware = partial(method_middleware, endpoint=handler)
-        else:
-            final_middleware = None
-
-        self.websocket_handlers[path] = {
-            "handler": handler,
-            "middleware": final_middleware,
-        }
-
-    def _compile_route_pattern(self, path: str):
-        param_pattern = re.compile(r"<(\w+)>")
-        regex_pattern = re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
-        return re.compile(regex_pattern + r"/?$")
-
+@dataclass
+class Server(ServerConfig, RouterBase):
     async def generate_swagger_json(self, *args, **kwargs):
         if not SWAGGER_JSON["paths"]:
             for path, methods in self.routes.items():

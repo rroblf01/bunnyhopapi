@@ -1,5 +1,4 @@
-from bunnyhopapi.server import Server
-from bunnyhopapi.router import Router
+from bunnyhopapi.server import Server, Router
 from bunnyhopapi import logger
 from pydantic import BaseModel
 import os
