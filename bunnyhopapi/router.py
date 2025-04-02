@@ -30,25 +30,11 @@ class Router:
                 handler = content.get("handler")
                 existing_middleware = content.get("middleware")
 
-                # Si ambos routers tienen middleware, encadenarlos correctamente
                 if self.middleware and existing_middleware:
-
-                    def chained_middleware(*args, **kwargs):
-                        # Primero llama al middleware del router actual (self)
-                        async def outer_middleware(*args, **kwargs):
-                            # Luego llama al middleware del router incluido
-                            async def inner_middleware(*args, **kwargs):
-                                return await handler(*args, **kwargs)
-
-                            return await existing_middleware(
-                                endpoint=inner_middleware, *args, **kwargs
-                            )
-
-                        return self.middleware(
-                            endpoint=outer_middleware, *args, **kwargs
-                        )
-
-                    middleware = chained_middleware
+                    middleware = partial(
+                        self.middleware,
+                        endpoint=existing_middleware,
+                    )
                 elif self.middleware:
                     middleware = partial(self.middleware, endpoint=handler)
                 elif existing_middleware:
@@ -71,6 +57,7 @@ class Router:
         method: str,
         handler: Coroutine,
         content_type="application/json",
+        middleware: Coroutine = None,
     ):
         path = path.lstrip("/")
         full_path = f"/{self.prefix.lstrip('/')}/{path}".replace("//", "/")
@@ -82,13 +69,21 @@ class Router:
                     full_path
                 )
 
-        middleware = None
-        if self.middleware:
-            middleware = partial(self.middleware, endpoint=handler)
+        if middleware and self.middleware:
+            final_middleware = partial(
+                self.middleware,
+                endpoint=partial(middleware, endpoint=handler),
+            )
+        elif middleware:
+            final_middleware = partial(middleware, endpoint=handler)
+        elif self.middleware:
+            final_middleware = partial(self.middleware, endpoint=handler)
+        else:
+            final_middleware = handler
 
         self.routes[full_path][method] = {
             "handler": handler,
-            "middleware": middleware,
+            "middleware": final_middleware,
             "content_type": content_type,
         }
 

@@ -32,15 +32,10 @@ class Server(ServerConfig):
                     ]
 
             for method, content in methods.items():
-                if content.get("middleware"):
-                    middleware = content.get("middleware")
-                else:
-                    middleware = None
-
                 self.routes[full_path][method] = {
                     "handler": content.get("handler"),
                     "content_type": content.get("content_type"),
-                    "middleware": middleware,
+                    "middleware": content.get("middleware"),
                 }
 
         for path, handler in router.websocket_handlers.items():
