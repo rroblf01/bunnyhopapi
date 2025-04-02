@@ -5,6 +5,7 @@ from .request import RequestParser
 from .response import ResponseHandler
 from .handlers import RouteHandler
 from .websocket import WebSocketHandler
+from .models import RouterBase
 
 
 class ClientHandler:
@@ -82,7 +83,9 @@ class ClientHandler:
         elif isinstance(response, dict):
             if response.get(
                 "content_type"
-            ) == "text/event-stream" and inspect.isasyncgen(response["response_data"]):
+            ) == RouterBase.CONTENT_TYPE_SSE and inspect.isasyncgen(
+                response["response_data"]
+            ):
                 prepared, generator = self.response_handler.prepare_response(
                     response["content_type"],
                     response["status_code"],

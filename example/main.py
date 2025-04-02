@@ -115,9 +115,7 @@ async def test_template_handler(*args, **kwargs):
 
 
 def main():
-    server = Server(
-        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
-    )
+    server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
 
     nested_router = Router(prefix="/nested", middleware=nested_middleware)
     nested_router.add_route(
@@ -131,12 +129,12 @@ def main():
 
     server.add_route(
         path="/health",
-        method="GET",
+        method=Server.GET,
         handler=health_check_handler,
     )
     server.add_route(
         path="/sse/events",
-        method="GET",
+        method=Server.GET,
         handler=stream_server_sent_events,
     )
 
@@ -148,30 +146,30 @@ def main():
 
     server.add_route(
         path="/sse",
-        method="GET",
+        method=Server.GET,
         handler=sse_index_handler,
-        content_type="text/html",
+        content_type=Server.CONTENT_TYPE_HTML,
     )
 
     server.add_route(
         path="/",
-        method="GET",
+        method=Server.GET,
         handler=index_handler,
-        content_type="text/html",
+        content_type=Server.CONTENT_TYPE_HTML,
     )
 
     server.add_route(
         path="/test",
-        method="GET",
+        method=Server.GET,
         handler=test_template_handler,
-        content_type="text/html",
+        content_type=Server.CONTENT_TYPE_HTML,
     )
 
     server.add_route(
         path="/ws",
-        method="GET",
+        method=Server.GET,
         handler=ws_index_handler,
-        content_type="text/html",
+        content_type=Server.CONTENT_TYPE_HTML,
     )
 
     server.run()

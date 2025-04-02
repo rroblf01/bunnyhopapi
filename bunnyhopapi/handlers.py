@@ -5,6 +5,7 @@ from typing import Dict, Optional, get_type_hints
 import asyncio
 from pydantic import BaseModel, ValidationError
 from bunnyhopapi.models import PathParam
+from .models import RouterBase
 
 
 class RouteHandler:
@@ -98,7 +99,7 @@ class RouteHandler:
 
             if inspect.isasyncgen(result):
                 return {
-                    "content_type": "text/event-stream",
+                    "content_type": RouterBase.CONTENT_TYPE_SSE,
                     "status_code": 200,
                     "response_data": result,
                 }

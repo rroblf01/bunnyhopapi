@@ -2,6 +2,7 @@ import json
 from typing import Union, AsyncGenerator, Tuple
 import inspect
 from . import logger
+from .models import RouterBase
 
 
 class ResponseHandler:
@@ -24,7 +25,9 @@ class ResponseHandler:
         status_code: int,
         response_data: Union[dict, str, bytes, AsyncGenerator],
     ) -> Union[Tuple[bytes, AsyncGenerator], bytes]:
-        if content_type == "text/event-stream" and inspect.isasyncgen(response_data):
+        if content_type == RouterBase.CONTENT_TYPE_SSE and inspect.isasyncgen(
+            response_data
+        ):
             return self._prepare_sse_response(response_data)
 
         if isinstance(response_data, dict):

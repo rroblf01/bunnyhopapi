@@ -33,6 +33,15 @@ class RouterBase:
     websocket_handlers: Dict[str, Coroutine] = field(default_factory=dict)
     prefix: str = field(default_factory=str)
 
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
+
+    CONTENT_TYPE_JSON = "application/json"
+    CONTENT_TYPE_HTML = "text/html"
+    CONTENT_TYPE_SSE = "text/event-stream"
+
     def include_router(self, router):
         for path, context in router.routes.items():
             full_path = f"/{self.prefix.lstrip('/')}/{path.lstrip('/')}".replace(
@@ -76,7 +85,7 @@ class RouterBase:
         path: str,
         method: str,
         handler: Coroutine,
-        content_type="application/json",
+        content_type=CONTENT_TYPE_JSON,
         middleware: Coroutine = None,
     ):
         path = path.lstrip("/")
