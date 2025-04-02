@@ -2,7 +2,7 @@ from jinja2 import Environment, FileSystemLoader
 from . import logger
 
 
-async def create_template_env(path: str):
+def create_template_env(path: str):
     """
     Crea un entorno de Jinja2 para renderizar plantillas.
     """

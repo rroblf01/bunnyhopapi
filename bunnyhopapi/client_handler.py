@@ -26,9 +26,13 @@ class ClientHandler:
         if request_data is None:
             return
 
-        method, path, headers, body, query_params = self.request_parser.parse_request(
-            request_data
-        )
+        (
+            method,
+            path,
+            headers,
+            body,
+            query_params,
+        ) = await self.request_parser.parse_request(request_data)
 
         if method is None:
             await self._send_error_response(writer, 400, "Invalid request")
@@ -79,49 +83,60 @@ class ClientHandler:
         await writer.wait_closed()
 
     async def _send_response(self, writer, response):
-        if isinstance(response, tuple) and len(response) == 3:
-            content_type, status_code, response_data = response
-            prepared = self.response_handler.prepare_response(
-                content_type, status_code, response_data
-            )
-        elif isinstance(response, dict):
-            if response.get(
-                "content_type"
-            ) == RouterBase.CONTENT_TYPE_SSE and inspect.isasyncgen(
-                response["response_data"]
+        try:
+            # Caso 1: Respuesta SSE (Streaming)
+            if (
+                isinstance(response, dict)
+                and response.get("content_type") == RouterBase.CONTENT_TYPE_SSE
+                and inspect.isasyncgen(response.get("response_data"))
             ):
                 prepared, generator = self.response_handler.prepare_response(
                     response["content_type"],
                     response["status_code"],
                     response["response_data"],
                 )
+
                 writer.write(prepared)
                 await writer.drain()
 
                 try:
                     async for chunk in generator:
-                        writer.write(chunk.encode("utf-8"))
+                        # Optimización: Evitar encode si ya es bytes
+                        if isinstance(chunk, str):
+                            chunk = chunk.encode("utf-8")
+                        writer.write(chunk)
                         await writer.drain()
                 finally:
                     writer.close()
                     await writer.wait_closed()
                 return
-            prepared = self.response_handler.prepare_response(
-                response["content_type"],
-                response["status_code"],
-                response["response_data"],
-            )
-        else:
-            prepared = self.response_handler.prepare_response(
-                "application/json",
-                500,
-                {
+
+            # Caso 2: Respuesta normal (tupla o dict)
+            if isinstance(response, tuple) and len(response) == 3:
+                content_type, status_code, response_data = response
+            elif isinstance(response, dict):
+                content_type = response["content_type"]
+                status_code = response["status_code"]
+                response_data = response["response_data"]
+            else:
+                # Respuesta de error por formato desconocido
+                content_type = "application/json"
+                status_code = 500
+                response_data = {
                     "error": "Internal server error",
                     "message": "Unknown response format",
-                },
+                }
+
+            # Preparar y enviar respuesta
+            prepared = self.response_handler.prepare_response(
+                content_type, status_code, response_data
             )
 
-        writer.write(prepared)
-        await writer.drain()
-        writer.close()
-        await writer.wait_closed()
+            writer.write(prepared)
+            await writer.drain()
+
+        except Exception as e:
+            logger.error(f"Error sending response: {e}")
+        finally:
+            writer.close()
+            await writer.wait_closed()

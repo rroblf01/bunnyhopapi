@@ -74,19 +74,17 @@ class RouteHandler:
         middleware = route_info.get("middleware")
 
         type_hints = get_type_hints(handler)
-        validated_params = {}
-        if params := route_info.get("params"):
-            try:
-                validated_params = self._validate_params(
-                    params, type_hints, query_params
-                )
-            except ValueError as e:
-                logger.error(f"Validation error for {method} {path}: {str(e)}")
-                return {
-                    "content_type": content_type,
-                    "status_code": 422,
-                    "response_data": {"error": str(e)},
-                }
+        try:
+            validated_params = self._validate_params(
+                route_info.get("params"), type_hints, query_params
+            )
+        except ValueError as e:
+            logger.error(f"Validation error for {method} {path}: {str(e)}")
+            return {
+                "content_type": content_type,
+                "status_code": 422,
+                "response_data": {"error": str(e)},
+            }
 
         if body:
             body_validation = self._validate_body(body, type_hints)

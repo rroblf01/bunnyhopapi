@@ -18,38 +18,87 @@ class RequestParser:
 
         return match.groupdict()
 
-    def parse_request(self, request_data: bytes):
-        request_lines = request_data.decode().split("\r\n")
-        if not request_lines:
-            return None, None, None, None, None
+    async def parse_request(self, request_data: bytes):
+        try:
+            # Optimización: Buscar el fin de headers directamente en bytes
+            header_end = request_data.find(b"\r\n\r\n")
+            if header_end == -1:
+                return None, None, None, None, None
 
-        first_line = request_lines[0].split(" ", 2)
-        if len(first_line) < 2:
-            return None, None, None, None, None
+            # Dividir solo la parte de headers (evita decodificar el body innecesariamente)
+            header_data = request_data[:header_end]
 
-        method, raw_path = first_line[0], first_line[1]
-        parsed_url = urlparse(raw_path)
-        path = parsed_url.path
-        query_params = {k: v[0] for k, v in parse_qs(parsed_url.query).items()}
-        headers = {}
-        body = None
-
-        for line in request_lines[1:]:
-            if not line.strip():
-                break
-            if ":" in line:
-                key, value = line.split(":", 1)
-                headers[key.strip().lower()] = value.strip()
-
-        if "content-length" in headers:
+            # Decodificación optimizada solo de los headers
             try:
-                content_length = int(headers["content-length"])
-                body_start = request_data.find(b"\r\n\r\n") + 4
-                if body_start > 0 and body_start + content_length <= len(request_data):
-                    body = request_data[
-                        body_start : body_start + content_length
-                    ].decode("utf-8")
-            except (ValueError, UnicodeDecodeError):
-                pass
+                headers_text = header_data.decode("latin-1")
+            except UnicodeDecodeError:
+                return None, None, None, None, None
 
-        return method, path, headers, body, query_params
+            # Procesar primera línea
+            first_line_end = headers_text.find("\r\n")
+            if first_line_end == -1:
+                return None, None, None, None, None
+
+            first_line = headers_text[:first_line_end].split(" ", 2)
+            if len(first_line) < 2:
+                return None, None, None, None, None
+
+            method = first_line[0]
+            raw_path = first_line[1]
+
+            # Optimización: Parseo manual de URL (más rápido que urlparse para casos simples)
+            path_end = raw_path.find("?")
+            if path_end == -1:
+                path = raw_path
+                query_params = {}
+            else:
+                path = raw_path[:path_end]
+                query_string = raw_path[path_end + 1 :]
+                query_params = {}
+
+                # Parseo manual de query string (optimizado)
+                if query_string:
+                    for pair in query_string.split("&"):
+                        if "=" in pair:
+                            key, value = pair.split("=", 1)
+                            query_params[key] = value.split(",")[0]  # Solo primer valor
+
+            # Parseo de headers optimizado
+            headers = {}
+            header_lines = headers_text[first_line_end + 2 :].split("\r\n")
+            for line in header_lines:
+                if not line:
+                    continue
+                colon_pos = line.find(":")
+                if colon_pos > 0:
+                    key = line[:colon_pos].strip().lower()
+                    value = line[colon_pos + 1 :].strip()
+                    headers[key] = value
+
+            # Procesamiento del body (solo si es necesario)
+            body = None
+            if "content-length" in headers:
+                try:
+                    content_length = int(headers["content-length"])
+                    body_start = header_end + 4
+                    if content_length > 0 and (body_start + content_length) <= len(
+                        request_data
+                    ):
+                        # Decodificar solo si es texto (verificar content-type)
+                        if headers.get("content-type", "").startswith(
+                            "text/"
+                        ) or "application/json" in headers.get("content-type", ""):
+                            body = request_data[
+                                body_start : body_start + content_length
+                            ].decode("utf-8")
+                        else:
+                            body = request_data[
+                                body_start : body_start + content_length
+                            ]
+                except (ValueError, UnicodeDecodeError):
+                    pass
+
+            return method, path, headers, body, query_params
+
+        except Exception as e:
+            return None, None, None, None, None

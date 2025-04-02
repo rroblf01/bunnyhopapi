@@ -96,10 +96,13 @@ class WSTemplateEndpoint(Endpoint):
 class JinjaTemplateEndpoint(Endpoint):
     path = "/"
 
+    def __init__(self):
+        super().__init__()
+        self.template_env = create_template_env("example/templates/jinja/")
+
     @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
-        template_end = await create_template_env("example/templates/jinja/")
-        return await render_jinja_template("index.html", template_end)
+        return await render_jinja_template("index.html", self.template_env)
 
 
 def main():
