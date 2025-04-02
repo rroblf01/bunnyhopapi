@@ -154,7 +154,6 @@ class RouteHandler:
         validated_params = {}
         for param_name, param_value in {**params, **query_params}.items():
             if param_name not in type_hints:
-                validated_params[param_name] = param_value
                 continue
 
             param_type = type_hints[param_name]
