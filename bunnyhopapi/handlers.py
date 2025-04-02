@@ -33,11 +33,7 @@ class RouteHandler:
     ):
         route_info = self._find_route(path, method)
         if not route_info:
-            return {
-                "content_type": "application/json",
-                "status_code": 404,
-                "response_data": {"error": f"Route {method} {path} not found"},
-            }
+            return await self._route_not_found_response(path, method)
 
         handler_info, params = route_info
         handler_info["params"] = params
@@ -57,9 +53,9 @@ class RouteHandler:
 
         return None
 
-    def _route_not_found_response(self, path: str, method: str):
-        error_msg = f"Route {method} {path} not found"
-        return "application/json", 404, {"error": error_msg}
+    async def _route_not_found_response(self, path: str, method: str):
+        error_msg = {"error": f"Route {method} {path} not found"}
+        return "application/json", 404, error_msg
 
     async def _process_handler(
         self,

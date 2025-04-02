@@ -1,6 +1,7 @@
 import json
 from typing import Union, AsyncGenerator, Tuple
 import inspect
+from . import logger
 
 
 class ResponseHandler:
@@ -58,8 +59,6 @@ class ResponseHandler:
         content_type = "application/json"
         if isinstance(response_data, dict):
             response_data = json.dumps(response_data).encode("utf-8")
-        else:
-            response_data = json.dumps({"error": str(response_data)}).encode("utf-8")
 
         return self._build_response(content_type, status_code, response_data)
 
