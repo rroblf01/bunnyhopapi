@@ -74,17 +74,19 @@ class RouteHandler:
         middleware = route_info.get("middleware")
 
         type_hints = get_type_hints(handler)
-        try:
-            validated_params = self._validate_params(
-                route_info.get("params", {}), type_hints, query_params
-            )
-        except ValueError as e:
-            logger.error(f"Validation error for {method} {path}: {str(e)}")
-            return {
-                "content_type": content_type,
-                "status_code": 422,
-                "response_data": {"error": str(e)},
-            }
+        validated_params = {}
+        if params := route_info.get("params"):
+            try:
+                validated_params = self._validate_params(
+                    params, type_hints, query_params
+                )
+            except ValueError as e:
+                logger.error(f"Validation error for {method} {path}: {str(e)}")
+                return {
+                    "content_type": content_type,
+                    "status_code": 422,
+                    "response_data": {"error": str(e)},
+                }
 
         if body:
             body_validation = self._validate_body(body, type_hints)
@@ -152,38 +154,33 @@ class RouteHandler:
 
     def _validate_params(self, params: Dict, type_hints: Dict, query_params: Dict):
         validated_params = {}
-        for param_name, param_value in {**params, **query_params}.items():
+        combined_params = {**params, **query_params}
+
+        for param_name, param_value in combined_params.items():
             if param_name not in type_hints:
                 continue
 
             param_type = type_hints[param_name]
-            if get_origin(param_type) is PathParam:
-                try:
-                    validated_params[param_name] = param_type.__args__[0](param_value)
-                except ValueError:
-                    raise ValueError(
-                        f"Invalid value for parameter '{param_name}': '{param_value}' is not a valid {param_type.__args__[0].__name__}."
-                    )
-                except TypeError:
-                    raise ValueError(
-                        f"Type error for parameter '{param_name}': Expected type {param_type.__args__[0].__name__}, but got value '{param_value}'."
-                    )
-            elif get_origin(param_type) is QueryParam:
-                try:
+            origin = get_origin(param_type)
+
+            try:
+                if origin is PathParam or origin is QueryParam:
+                    param_class = param_type.__args__[0]
                     default_value = (
                         param_type.__args__[1] if len(param_type.__args__) > 1 else None
                     )
                     validated_params[param_name] = (
-                        param_type.__args__[0](param_value)
+                        param_class(param_value)
                         if param_value is not None
                         else default_value
                     )
-                except ValueError:
-                    raise ValueError(
-                        f"Invalid value for query parameter '{param_name}': '{param_value}' is not a valid {param_type.__args__[0].__name__}."
-                    )
-            else:
-                validated_params[param_name] = param_value
+                else:
+                    validated_params[param_name] = param_value
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"Invalid value for parameter '{param_name}': '{param_value}' is not a valid {param_class.__name__}."
+                )
+
         return validated_params
 
     def _validate_body(self, body: str, type_hints: Dict):

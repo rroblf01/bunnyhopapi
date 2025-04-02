@@ -20,6 +20,13 @@ class BodyModel(BaseModel):
     age: int
 
 
+class HealthEndpoint(Endpoint):
+    path = "/health"
+
+    def get(self, headers):
+        return 200, {"message": "GET /health"}
+
+
 class UserEndpoint(Endpoint):
     path = "/user"
 
@@ -107,6 +114,7 @@ def main():
     server.include_endpoint_class(WSEndpoint)
     server.include_endpoint_class(WSTemplateEndpoint)
     server.include_endpoint_class(JinjaTemplateEndpoint)
+    server.include_endpoint_class(HealthEndpoint)
     server.run()
 
 
