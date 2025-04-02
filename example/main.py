@@ -24,7 +24,7 @@ class UserEndpoint(Endpoint):
     path = "/user"
 
     def get(
-        self, age: QueryParam[int], name: QueryParam[str], headers
+        self, headers, age: QueryParam[int], name: QueryParam[str] = "Alice"
     ) -> {200: MessageModel}:
         return 200, {"message": f"GET /user/ pathparams: age {age}, name {name}"}
 

@@ -170,7 +170,14 @@ class RouteHandler:
                     )
             elif get_origin(param_type) is QueryParam:
                 try:
-                    validated_params[param_name] = param_type.__args__[0](param_value)
+                    default_value = (
+                        param_type.__args__[1] if len(param_type.__args__) > 1 else None
+                    )
+                    validated_params[param_name] = (
+                        param_type.__args__[0](param_value)
+                        if param_value is not None
+                        else default_value
+                    )
                 except ValueError:
                     raise ValueError(
                         f"Invalid value for query parameter '{param_name}': '{param_value}' is not a valid {param_type.__args__[0].__name__}."

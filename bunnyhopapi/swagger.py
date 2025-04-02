@@ -41,17 +41,19 @@ class SwaggerGenerator:
             type_hints = get_type_hints(handler)
 
             operation = SwaggerGenerator._generate_operation(
-                method, path, type_hints, details
+                method, path, type_hints, details, handler
             )
             SWAGGER_JSON["paths"][swagger_path][method.lower()] = operation
 
     @staticmethod
-    def _generate_operation(method: str, path: str, type_hints: dict, details: dict):
+    def _generate_operation(
+        method: str, path: str, type_hints: dict, details: dict, handler
+    ):
         response_schema = {}
         parameters = []
         request_body = None
 
-        parameters.extend(SwaggerGenerator._process_path_params(type_hints))
+        parameters.extend(SwaggerGenerator._process_path_params(type_hints, handler))
         request_body = SwaggerGenerator._process_body_params(type_hints)
         response_schema = SwaggerGenerator._process_response_types(type_hints)
 
@@ -75,7 +77,7 @@ class SwaggerGenerator:
         return operation
 
     @staticmethod
-    def _process_path_params(type_hints: dict):
+    def _process_path_params(type_hints: dict, handler):
         parameters = []
         for param_name, param_type in type_hints.items():
             if get_origin(param_type) is PathParam:
@@ -92,12 +94,22 @@ class SwaggerGenerator:
             elif get_origin(param_type) is QueryParam:
                 type_name = param_type.__args__[0].__name__
                 swagger_type = TYPE_MAPPING.get(type_name, type_name)
+
+                signature = inspect.signature(handler)
+                parameter = signature.parameters.get(param_name)
+                is_required = not bool(
+                    parameter is not None
+                    and parameter.default is not inspect.Parameter.empty
+                )
+
                 parameters.append(
                     {
                         "name": param_name,
                         "in": "query",
-                        "required": True,
-                        "schema": {"type": swagger_type},
+                        "required": is_required,
+                        "schema": {
+                            "type": swagger_type,
+                        },
                     }
                 )
         return parameters
