@@ -1,12 +1,12 @@
 import asyncio
-from typing import Dict, Callable
+from typing import Dict, Callable, AsyncGenerator
 from .router import Router
 import re
 from .models import ServerConfig
 from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .client_handler import ClientHandler
 from functools import partial
-
+import inspect
 from . import logger
 from dataclasses import dataclass, field
 import uvloop
@@ -94,9 +94,37 @@ class Server(ServerConfig):
             "content_type": content_type,
         }
 
-    def add_websocket_route(self, path, handler):
+    def add_websocket_route(self, path, handler, middleware: AsyncGenerator = None):
         logger.info(f"Adding websocket route {path}")
-        self.websocket_handlers[path] = handler
+        logger.info(
+            f"isasyncgen self.middleware: {inspect.isasyncgenfunction(self.middleware)} {self.middleware}"
+        )
+        logger.info(
+            f"isasyncgen middleware: {inspect.isasyncgenfunction(middleware)} {middleware}"
+        )
+        class_middleware = (
+            self.middleware if inspect.isasyncgenfunction(self.middleware) else None
+        )
+        method_middleware = (
+            middleware if inspect.isasyncgenfunction(middleware) else None
+        )
+        if class_middleware and method_middleware:
+            final_middleware = partial(
+                class_middleware,
+                endpoint=partial(method_middleware, endpoint=handler),
+            )
+        elif class_middleware:
+            final_middleware = partial(class_middleware, endpoint=handler)
+
+        elif method_middleware:
+            final_middleware = partial(method_middleware, endpoint=handler)
+        else:
+            final_middleware = None
+
+        self.websocket_handlers[path] = {
+            "handler": handler,
+            "middleware": final_middleware,
+        }
 
     def _compile_route_pattern(self, path: str):
         param_pattern = re.compile(r"<(\w+)>")

@@ -1,8 +1,9 @@
-from typing import Dict, Coroutine
+from typing import Dict, Coroutine, AsyncGenerator
 from . import logger
 import re
 from dataclasses import dataclass, field
 from functools import partial
+import inspect
 
 
 @dataclass
@@ -92,5 +93,34 @@ class Router:
         regex_pattern = re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
         return re.compile(regex_pattern + r"/?$")
 
-    def add_websocket_route(self, path: str, handler: Coroutine):
-        self.websocket_handlers[path] = handler
+    def add_websocket_route(self, path, handler, middleware: AsyncGenerator = None):
+        logger.info(f"Adding websocket route {path}")
+        logger.info(
+            f"isasyncgen self.middleware: {inspect.isasyncgenfunction(self.middleware)} {self.middleware}"
+        )
+        logger.info(
+            f"isasyncgen middleware: {inspect.isasyncgenfunction(middleware)} {middleware}"
+        )
+        class_middleware = (
+            self.middleware if inspect.isasyncgenfunction(self.middleware) else None
+        )
+        method_middleware = (
+            middleware if inspect.isasyncgenfunction(middleware) else None
+        )
+        if class_middleware and method_middleware:
+            final_middleware = partial(
+                class_middleware,
+                endpoint=partial(method_middleware, endpoint=handler),
+            )
+        elif class_middleware:
+            final_middleware = partial(class_middleware, endpoint=handler)
+
+        elif method_middleware:
+            final_middleware = partial(method_middleware, endpoint=handler)
+        else:
+            final_middleware = None
+
+        self.websocket_handlers[path] = {
+            "handler": handler,
+            "middleware": final_middleware,
+        }

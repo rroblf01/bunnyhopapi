@@ -4,7 +4,7 @@ import base64
 import struct
 import uuid
 from typing import Callable, Dict
-
+import inspect
 from . import logger
 
 
@@ -56,6 +56,10 @@ class WebSocketHandler:
             logger.info(f"No WebSocket handler found for {path}")
             return
 
+        handler_info = self.websocket_handlers[path]
+        handler = handler_info["handler"]
+        middleware = handler_info.get("middleware")
+
         key = headers.get("sec-websocket-key")
         if not key:
             logger.info("No Sec-WebSocket-Key found in headers")
@@ -79,15 +83,26 @@ class WebSocketHandler:
 
         connection_id = str(uuid.uuid4())
 
+        async def process_message(message):
+            if middleware:
+                logger.info(f"Using middleware: {middleware}")
+                result = middleware(connection_id=connection_id, message=message)
+            else:
+                result = handler(connection_id=connection_id, message=message)
+
+            if inspect.isasyncgen(result):
+                async for response in result:
+                    yield response
+            else:
+                yield await result
+
         try:
             while True:
                 opcode, message = await self._read_websocket_frame(reader)
                 if opcode == 0x8:  # Close frame
                     break
 
-                async for response in self.websocket_handlers[path](
-                    connection_id, message
-                ):
+                async for response in process_message(message):
                     await self._write_websocket_frame(writer, response)
 
         except (ConnectionResetError, asyncio.IncompleteReadError) as e:
