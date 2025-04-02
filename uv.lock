@@ -13,7 +13,7 @@ wheels = [
 
 [[package]]
 name = "bunnyhopapi"
-version = "0.2.1"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -29,7 +29,7 @@ lint = [
 requires-dist = [
     { name = "pydantic", specifier = "==2.11.0" },
     { name = "ruff", marker = "extra == 'lint'", specifier = "==0.11.2" },
-    { name = "uvloop", specifier = ">=0.21.0" },
+    { name = "uvloop", specifier = "==0.21.0" },
 ]
 provides-extras = ["lint"]
 

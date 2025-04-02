@@ -129,6 +129,20 @@ class Server(ServerConfig):
             content_type="text/html",
         )
 
+    @staticmethod
+    async def serve_html_file(file_path: str, *args, **kwargs):
+        try:
+            with open(file_path, "r", encoding="utf-8") as html_file:
+                return 200, html_file.read()
+
+        except FileNotFoundError:
+            logger.error(f"HTML file not found: {file_path}")
+            return 404, "File not found"
+
+        except Exception as e:
+            logger.error(f"Error reading HTML file: {e}")
+            return 500, "Internal server error"
+
     async def _run(self):
         client_handler = ClientHandler(
             self.routes, self.routes_with_params, self.websocket_handlers, self.cors

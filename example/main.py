@@ -6,13 +6,13 @@ import os
 import asyncio
 
 
-class MessageModel(BaseModel):
+class GreetingResponseModel(BaseModel):
     message: str
 
 
-async def greet_user(*args, **kwargs) -> {200: MessageModel}:
-    logger.info("greet_user")
-    return 200, MessageModel(
+async def handle_greeting_request(*args, **kwargs) -> {200: GreetingResponseModel}:
+    logger.info("handle_greeting_request")
+    return 200, GreetingResponseModel(
         message="Hello, welcome to our API!",
         origin="Hello, welcome to our API!",
     )
@@ -64,11 +64,11 @@ async def custom_middleware(endpoint, *args, **kwargs):
     return response
 
 
-async def health_check(*args, **kwargs):
+async def health_check_handler(*args, **kwargs):
     return 200, {"status": "ok"}
 
 
-async def sse_events(*args, **kwargs):
+async def stream_server_sent_events(*args, **kwargs):
     events = ["start", "progress", "complete"]
     for event in events:
         yield f"event: {event}\ndata: Processing {event}\n\n"
@@ -76,10 +76,18 @@ async def sse_events(*args, **kwargs):
     yield "event: end\ndata: All done!\n\n"
 
 
-async def ws_echo(connection_id, message):
+async def websocket_echo_handler(connection_id, message):
     for i in range(10):
         yield f"event: message\ndata: {i}\n\n"
         await asyncio.sleep(0.2)
+
+
+async def sse_index_handler(*args, **kwargs):
+    return await Server.serve_html_file("./example/sse_index.html")
+
+
+async def index_handler(*args, **kwargs):
+    return await Server.serve_html_file("./example/index.html")
 
 
 def main():
@@ -87,7 +95,7 @@ def main():
 
     nested_router = Router(prefix="/nested", middleware=nested_middleware)
     nested_router.add_route(
-        "/greet", "GET", greet_user, middleware=auxiliary_middleware
+        "/greet", "GET", handle_greeting_request, middleware=auxiliary_middleware
     )
 
     greeting_router = Router(prefix="/greetings", middleware=log_request_middleware)
@@ -96,20 +104,35 @@ def main():
     server.include_router(greeting_router)
 
     server.add_route(
-        path="/",
+        path="/health",
         method="GET",
-        handler=health_check,
+        handler=health_check_handler,
     )
     server.add_route(
         path="/sse/events",
         method="GET",
-        handler=sse_events,
+        handler=stream_server_sent_events,
     )
 
     server.add_websocket_route(
         path="/ws/chat",
-        handler=ws_echo,
+        handler=websocket_echo_handler,
     )
+
+    server.add_route(
+        path="/sse",
+        method="GET",
+        handler=sse_index_handler,
+        content_type="text/html",
+    )
+
+    server.add_route(
+        path="/",
+        method="GET",
+        handler=index_handler,
+        content_type="text/html",
+    )
+
     server.run()
 
 
