@@ -42,11 +42,14 @@ class Endpoint:
                             for name, value in annotations.items()
                             if get_origin(value) is PathParam
                         )
-                        route_path = f"{self.path}/{param_names}".replace("//", "/")
+
+                        if not param_names:
+                            route_path = self.path
+                        else:
+                            route_path = f"{self.path}/{param_names}".replace("//", "/")
                     else:
                         route_path = self.path
 
-                    logger.info(f"Route: {route_path} - Method: {method_name}")
                     middleware = getattr(method, "__middleware__", None)
                     if route_path not in routes:
                         routes[route_path] = {}

@@ -1,6 +1,6 @@
 import re
 import inspect
-from typing import get_type_hints
+from typing import get_type_hints, get_origin
 from pydantic import BaseModel
 from bunnyhopapi.models import PathParam
 
@@ -78,9 +78,8 @@ class SwaggerGenerator:
     def _process_path_params(type_hints: dict):
         parameters = []
         for param_name, param_type in type_hints.items():
-            if isinstance(param_type, PathParam):
-                inner_type = param_type.param_type
-                type_name = inner_type.__name__.lower()
+            if get_origin(param_type) is PathParam:
+                type_name = param_type.__args__[0].__name__
                 swagger_type = TYPE_MAPPING.get(type_name, type_name)
                 parameters.append(
                     {
