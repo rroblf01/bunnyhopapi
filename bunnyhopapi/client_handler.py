@@ -36,7 +36,6 @@ class ClientHandler:
             return
 
         if headers.get("upgrade") == "websocket":
-            logger.info(f"WebSocket connection request to {path}")
             await self.websocket_handler.handle_websocket(reader, writer, path, headers)
             return
 

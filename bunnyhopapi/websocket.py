@@ -79,7 +79,6 @@ class WebSocketHandler:
         await writer.drain()
 
         connection_id = str(uuid.uuid4())
-        logger.info(f"WebSocket connection established with ID: {connection_id}")
 
         try:
             while True:
@@ -96,6 +95,5 @@ class WebSocketHandler:
             logger.warning(f"WebSocket connection error: {e}")
             logger.info("WebSocket connection closed abruptly")
         finally:
-            logger.info(f"Closing WebSocket connection {connection_id}")
             writer.close()
             await writer.wait_closed()

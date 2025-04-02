@@ -3,6 +3,7 @@ from bunnyhopapi.router import Router
 from bunnyhopapi import logger
 from pydantic import BaseModel
 import os
+import asyncio
 
 
 class MessageModel(BaseModel):
@@ -67,6 +68,20 @@ async def health_check(*args, **kwargs):
     return 200, {"status": "ok"}
 
 
+async def sse_events(*args, **kwargs):
+    events = ["start", "progress", "complete"]
+    for event in events:
+        yield f"event: {event}\ndata: Processing {event}\n\n"
+        await asyncio.sleep(1.5)
+    yield "event: end\ndata: All done!\n\n"
+
+
+async def ws_echo(connection_id, message):
+    for i in range(10):
+        yield f"event: message\ndata: {i}\n\n"
+        await asyncio.sleep(0.2)
+
+
 def main():
     server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
 
@@ -84,6 +99,16 @@ def main():
         path="/",
         method="GET",
         handler=health_check,
+    )
+    server.add_route(
+        path="/sse/events",
+        method="GET",
+        handler=sse_events,
+    )
+
+    server.add_websocket_route(
+        path="/ws/chat",
+        handler=ws_echo,
     )
     server.run()
 
