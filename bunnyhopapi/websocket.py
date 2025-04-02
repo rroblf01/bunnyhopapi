@@ -59,11 +59,21 @@ class WebSocketHandler:
         handler_info = self.websocket_handlers[path]
         handler = handler_info["handler"]
         middleware = handler_info.get("middleware")
+        connection = handler_info.get("connection")
+        disconnect = handler_info.get("disconnect")
 
+        logger.info(f"WebSocket handler_info {handler_info}")
         key = headers.get("sec-websocket-key")
         if not key:
             logger.info("No Sec-WebSocket-Key found in headers")
             return
+
+        if connection:
+            is_auth = await connection(headers=headers)
+            if not is_auth:
+                writer.close()
+                await writer.wait_closed()
+                return
 
         accept_key = base64.b64encode(
             hashlib.sha1(
@@ -85,10 +95,13 @@ class WebSocketHandler:
 
         async def process_message(message):
             if middleware:
-                logger.info(f"Using middleware: {middleware}")
-                result = middleware(connection_id=connection_id, message=message)
+                result = middleware(
+                    connection_id=connection_id, message=message, headers=headers
+                )
             else:
-                result = handler(connection_id=connection_id, message=message)
+                result = handler(
+                    connection_id=connection_id, message=message, headers=headers
+                )
 
             if inspect.isasyncgen(result):
                 async for response in result:
@@ -111,3 +124,8 @@ class WebSocketHandler:
         finally:
             writer.close()
             await writer.wait_closed()
+
+            if disconnect:
+                logger.info("Executing disconnect middleware")
+                await disconnect(connection_id=connection_id, headers=headers)
+                logger.info("Disconnect middleware executed successfully")

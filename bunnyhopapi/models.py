@@ -55,11 +55,50 @@ class Endpoint:
                         routes[route_path] = {}
 
                     http_method = method_name.upper().replace(sufix, "")
+                    logger.info(
+                        f"Registering route: {route_path} with method: {http_method}"
+                    )
+                    logger.info(f"Middleware: {middleware}")
+                    logger.info(f"Handler: {method}")
+                    logger.info(
+                        f"Content-Type: {getattr(method, '__content_type__', None)}"
+                    )
                     routes[route_path][http_method] = {
                         "handler": method,
-                        "content_type": RouterBase.CONTENT_TYPE_JSON,
+                        "content_type": getattr(
+                            method, "__content_type__", RouterBase.CONTENT_TYPE_JSON
+                        ),
                         "middleware": middleware,
                     }
+        return routes
+
+    def get_ws_routes(self):
+        """
+        Devuelve un diccionario con los métodos HTTP válidos, sus manejadores y middlewares.
+        """
+        route_path = self.path
+        routes = {}
+        routes[route_path] = {}
+        start_end_methods = ["connection", "disconnect"]
+        for method_name in dir(self):
+            if method_name == "ws":
+                method = getattr(self, method_name)
+                if callable(method):
+                    routes[route_path].update(
+                        {
+                            "handler": method,
+                            "middleware": getattr(method, "__middleware__", None),
+                        }
+                    )
+            elif method_name in start_end_methods:
+                method = getattr(self, method_name)
+                if callable(method):
+                    routes[route_path].update(
+                        {
+                            method_name: method,
+                        }
+                    )
+
         return routes
 
     @staticmethod
@@ -70,6 +109,18 @@ class Endpoint:
 
         def decorator(func):
             setattr(func, "__middleware__", middleware)
+            return func
+
+        return decorator
+
+    @staticmethod
+    def with_content_type(content_type):
+        """
+        Decorador para asociar un content_type a un método.
+        """
+
+        def decorator(func):
+            setattr(func, "__content_type__", content_type)
             return func
 
         return decorator
@@ -111,7 +162,18 @@ class RouterBase:
                     method=method,
                     handler=handler.get("handler"),
                     middleware=handler.get("middleware"),
+                    content_type=handler.get("content_type"),
                 )
+
+        for path, context in endpoint.get_ws_routes().items():
+            logger.info(f"Registering websocket route: {context}")
+            self.add_websocket_route(
+                path=path,
+                handler=context.get("handler"),
+                middleware=context.get("middleware"),
+                connection=context.get("connection"),
+                disconnect=context.get("disconnect"),
+            )
 
     def include_router(self, router):
         for path, context in router.routes.items():
@@ -192,7 +254,14 @@ class RouterBase:
         regex_pattern = re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
         return re.compile(regex_pattern + r"/?$")
 
-    def add_websocket_route(self, path, handler, middleware: AsyncGenerator = None):
+    def add_websocket_route(
+        self,
+        path,
+        handler,
+        middleware: AsyncGenerator = None,
+        connection: Coroutine = None,
+        disconnect: Coroutine = None,
+    ):
         class_middleware = (
             self.middleware if inspect.isasyncgenfunction(self.middleware) else None
         )
@@ -215,17 +284,6 @@ class RouterBase:
         self.websocket_handlers[path] = {
             "handler": handler,
             "middleware": final_middleware,
+            "connection": connection,
+            "disconnect": disconnect,
         }
-
-    def register_endpoint(self, endpoint: Endpoint):
-        """
-        Registra automáticamente los métodos de un endpoint como rutas.
-        """
-        base_path = endpoint.path
-        for http_method, handler in endpoint.get_routes().items():
-            if "<" in base_path:
-                # Ruta con parámetros
-                self.add_route(base_path, http_method, handler)
-            else:
-                # Ruta sin parámetros
-                self.add_route(base_path, http_method, handler)

@@ -9,7 +9,9 @@ async def create_template_env(path: str):
     return Environment(loader=FileSystemLoader(path))
 
 
-async def render_template(template_name: str, template_env: Environment, **context):
+async def render_jinja_template(
+    template_name: str, template_env: Environment, **context
+):
     """
     Renderiza una plantilla Jinja2 con el contexto proporcionado.
     """
