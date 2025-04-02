@@ -3,9 +3,8 @@ import inspect
 from . import logger
 from typing import Dict, Optional, get_type_hints
 import asyncio
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from bunnyhopapi.models import PathParam
-from functools import partial
 
 
 class RouteHandler:
@@ -106,13 +105,29 @@ class RouteHandler:
 
             response = await result if asyncio.iscoroutine(result) else result
 
-            # Asegurarse de que la respuesta sea una tupla (status_code, response_data)
             if isinstance(response, tuple) and len(response) == 2:
                 status_code, response_data = response
             else:
                 raise ValueError(
                     "Handler must return a tuple of (status_code, response_data)"
                 )
+
+            response_model = type_hints.get("return", {}).get(status_code)
+            if response_model:
+                try:
+                    validated_data = response_model.validate(response_data)
+
+                    response_data = validated_data.model_dump()
+                except ValidationError as e:
+                    logger.error(f"Validation error: {e}", exc_info=True)
+                    return {
+                        "content_type": content_type,
+                        "status_code": 422,
+                        "response_data": {
+                            "error": "Validation error",
+                            "details": e.errors(),
+                        },
+                    }
 
             return {
                 "content_type": content_type,

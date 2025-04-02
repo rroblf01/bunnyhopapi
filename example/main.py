@@ -1,12 +1,20 @@
 from bunnyhopapi.server import Server
 from bunnyhopapi.router import Router
 from bunnyhopapi import logger
+from pydantic import BaseModel
 import os
 
 
-async def greet_user(*args, **kwargs):
+class MessageModel(BaseModel):
+    message: str
+
+
+async def greet_user(*args, **kwargs) -> {200: MessageModel}:
     logger.info("greet_user")
-    return 200, {"message": "Hello, welcome to our API!"}
+    return 200, MessageModel(
+        message="Hello, welcome to our API!",
+        origin="Hello, welcome to our API!",
+    )
 
 
 async def log_request_middleware(endpoint, *args, **kwargs):
@@ -55,10 +63,12 @@ async def custom_middleware(endpoint, *args, **kwargs):
     return response
 
 
+async def health_check(*args, **kwargs):
+    return 200, {"status": "ok"}
+
+
 def main():
-    server = Server(
-        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
-    )
+    server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
 
     nested_router = Router(prefix="/nested", middleware=nested_middleware)
     nested_router.add_route(
@@ -70,6 +80,11 @@ def main():
 
     server.include_router(greeting_router)
 
+    server.add_route(
+        path="/",
+        method="GET",
+        handler=health_check,
+    )
     server.run()
 
 

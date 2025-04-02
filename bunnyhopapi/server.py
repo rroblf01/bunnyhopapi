@@ -9,6 +9,8 @@ from functools import partial
 
 from . import logger
 from dataclasses import dataclass, field
+import uvloop
+import sys
 
 
 @dataclass
@@ -148,6 +150,8 @@ class Server(ServerConfig):
 
     def run(self):
         self.add_swagger()
+
+        uvloop.install()
         try:
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self._run())

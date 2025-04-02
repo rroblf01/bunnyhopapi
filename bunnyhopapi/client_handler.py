@@ -44,19 +44,16 @@ class ClientHandler:
         await self._send_response(writer, response)
 
     async def _read_request(self, reader) -> Optional[bytes]:
-        request_data = b""
         try:
+            request_data = b""
             while True:
-                data = await reader.read(4096)
-                if not data:
+                chunk = await reader.read(8192)
+                if not chunk:
                     break
-                request_data += data
+                request_data += chunk
                 if b"\r\n\r\n" in request_data:
                     break
             return request_data
-        except ConnectionResetError:
-            logger.warning("Client connection reset.")
-            return None
         except Exception as e:
             logger.error(f"Error reading from client: {e}")
             return None

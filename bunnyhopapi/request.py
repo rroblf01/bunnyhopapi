@@ -1,4 +1,3 @@
-import re
 from typing import Dict
 
 
@@ -6,11 +5,6 @@ class RequestParser:
     def __init__(self, routes: Dict, routes_with_params: Dict):
         self.routes = routes
         self.routes_with_params = routes_with_params
-
-    def _parse_path(self, path: str):
-        param_pattern = re.compile(r"<(\w+)>")
-        regex_pattern = re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
-        return re.compile(regex_pattern)
 
     def _extract_params(self, path: str, route_path: str):
         if route_path not in self.routes_with_params:
