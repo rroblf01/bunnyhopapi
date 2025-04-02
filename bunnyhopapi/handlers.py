@@ -69,14 +69,19 @@ class RouteHandler:
         headers: Optional[Dict] = None,
         query_params: Optional[Dict] = None,
     ):
+        # Extraer información de la ruta una sola vez
         handler = route_info["handler"]
         content_type = route_info["content_type"]
         middleware = route_info.get("middleware")
+        route_params = route_info.get("params", {})
 
+        # Cachear los type hints (asumiendo que no cambian durante la ejecución)
         type_hints = get_type_hints(handler)
+
+        # Validación de parámetros optimizada
         try:
             validated_params = self._validate_params(
-                route_info.get("params"), type_hints, query_params
+                route_params, type_hints, query_params
             )
         except ValueError as e:
             logger.error(f"Validation error for {method} {path}: {str(e)}")
@@ -86,6 +91,7 @@ class RouteHandler:
                 "response_data": {"error": str(e)},
             }
 
+        # Validación del body (solo si existe)
         if body:
             body_validation = self._validate_body(body, type_hints)
             if body_validation.get("error"):
@@ -96,12 +102,12 @@ class RouteHandler:
                 }
             validated_params.update(body_validation["validated_params"])
 
+        # Ejecutar el handler o middleware
         try:
-            if not middleware:
-                result = handler(headers=headers, **validated_params)
-            else:
-                result = middleware(headers=headers, **validated_params)
+            # Optimización: evitar llamada a función parcial si no hay middleware
+            result = (middleware or handler)(headers=headers, **validated_params)
 
+            # Manejo de diferentes tipos de respuesta
             if inspect.isasyncgen(result):
                 return {
                     "content_type": RouterBase.CONTENT_TYPE_SSE,
@@ -109,22 +115,24 @@ class RouteHandler:
                     "response_data": result,
                 }
 
+            # Optimización: await solo si es necesario
             response = await result if asyncio.iscoroutine(result) else result
 
-            if isinstance(response, tuple) and len(response) == 2:
-                status_code, response_data = response
-            else:
+            # Validación de la estructura de respuesta
+            if not isinstance(response, tuple) or len(response) != 2:
                 raise ValueError(
                     "Handler must return a tuple of (status_code, response_data)"
                 )
 
-            if response_model := type_hints.get("return") and type_hints.get(
-                "return", {}
-            ).get(status_code):
-                try:
-                    validated_data = response_model.validate(response_data)
+            status_code, response_data = response
 
-                    response_data = validated_data.model_dump()
+            # Validación del modelo de respuesta (si está definido)
+            return_type = type_hints.get("return", {})
+            if isinstance(return_type, dict) and (
+                response_model := return_type.get(status_code)
+            ):
+                try:
+                    response_data = response_model.validate(response_data).model_dump()
                 except ValidationError as e:
                     logger.error(f"Validation error: {e}", exc_info=True)
                     return {
