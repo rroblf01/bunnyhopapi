@@ -68,6 +68,7 @@ class RouteHandler:
         handler = route_info["handler"]
         content_type = route_info["content_type"]
         middleware = route_info.get("middleware")
+
         type_hints = get_type_hints(handler)
         validated_params = self._validate_params(
             route_info.get("params", {}), type_hints
@@ -94,7 +95,6 @@ class RouteHandler:
             if not middleware:
                 result = handler(headers=headers, **validated_params)
             else:
-                # Aquí es donde se ejecuta la cadena de middlewares
                 result = middleware(headers=headers, **validated_params)
 
             if inspect.isasyncgen(result):

@@ -75,9 +75,21 @@ class Server(ServerConfig):
             if "<" in path:
                 self.routes_with_params[path] = self._compile_route_pattern(path)
 
+        if middleware and self.middleware:
+            final_middleware = partial(
+                self.middleware,
+                endpoint=middleware,
+            )
+        elif self.middleware:
+            final_middleware = partial(self.middleware, endpoint=handler)
+        elif middleware:
+            final_middleware = middleware
+        else:
+            final_middleware = None
+
         self.routes[path][method] = {
             "handler": handler,
-            "middelware": middleware,
+            "middleware": final_middleware,
             "content_type": content_type,
         }
 
@@ -103,13 +115,16 @@ class Server(ServerConfig):
 
     def add_swagger(self):
         self.add_route(
-            "/swagger.json",
-            "GET",
-            self.generate_swagger_json,
+            path="/swagger.json",
+            method="GET",
+            handler=self.generate_swagger_json,
             content_type="application/json",
         )
         self.add_route(
-            "/docs", "GET", self.swagger_ui_handler, content_type="text/html"
+            path="/docs",
+            method="GET",
+            handler=self.swagger_ui_handler,
+            content_type="text/html",
         )
 
     async def _run(self):
