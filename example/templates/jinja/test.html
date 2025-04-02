@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "components.html" as components %}
+
+{% block title %}Test Page{% endblock %}
+
+{% block header %}Testing Jinja2 Components{% endblock %}
+
+{% block content %}
+    <h2>Buttons</h2>
+    {{ components.button("Home", "/", "btn btn-primary") }}
+    {{ components.button("About", "/about", "btn btn-secondary") }}
+
+    <h2>Alerts</h2>
+    {{ components.alert("This is an info alert.") }}
+    {{ components.alert("This is a warning alert.", "warning") }}
+
+    <h2>Cards</h2>
+    {{ components.card("Card Title", "This is the card content.", "Footer text") }}
+    {{ components.card("Another Card", "Content without footer.") }}
+{% endblock %}

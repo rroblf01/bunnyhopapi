@@ -20,7 +20,6 @@ class WebSocketHandler:
 
         opcode = header[0] & 0x0F
         if opcode == 0x8:  # Close frame
-            logger.info("Received close frame")
             return opcode, None
 
         masked = (header[1] & 0x80) != 0

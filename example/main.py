@@ -4,6 +4,11 @@ from bunnyhopapi import logger
 from pydantic import BaseModel
 import os
 import asyncio
+from bunnyhopapi.templates import (
+    render_template,
+    serve_static_html,
+    create_template_env,
+)
 
 
 class GreetingResponseModel(BaseModel):
@@ -83,11 +88,20 @@ async def websocket_echo_handler(connection_id, message):
 
 
 async def sse_index_handler(*args, **kwargs):
-    return await Server.serve_html_file("./example/sse_index.html")
+    return await serve_static_html("./example/templates/static_html/sse_index.html")
+
+
+async def ws_index_handler(*args, **kwargs):
+    return await serve_static_html("./example/templates/static_html/ws_index.html")
 
 
 async def index_handler(*args, **kwargs):
-    return await Server.serve_html_file("./example/index.html")
+    return await serve_static_html("./example/templates/static_html/index.html")
+
+
+async def test_template_handler(*args, **kwargs):
+    template_env = await create_template_env("./example/templates/jinja")
+    return await render_template("test.html", template_env)
 
 
 def main():
@@ -130,6 +144,20 @@ def main():
         path="/",
         method="GET",
         handler=index_handler,
+        content_type="text/html",
+    )
+
+    server.add_route(
+        path="/test",
+        method="GET",
+        handler=test_template_handler,
+        content_type="text/html",
+    )
+
+    server.add_route(
+        path="/ws",
+        method="GET",
+        handler=ws_index_handler,
         content_type="text/html",
     )
 

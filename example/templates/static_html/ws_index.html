@@ -13,8 +13,8 @@
 
     <script>
         let socket;
-        const host = window.location.hostname || 'localhost:8000';
-        const wsUrl = `ws://${host}/ws/chat`;
+        const host = window.location.hostname || 'localhost';
+        const wsUrl = `ws://${host}:8000/ws/chat`;
         
         function connect() {
             socket = new WebSocket(wsUrl);

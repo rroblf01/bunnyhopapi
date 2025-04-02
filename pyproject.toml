@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
+    "jinja2>=3.1.6",
     "pydantic==2.11.0",
     "uvloop==0.21.0",
 ]
