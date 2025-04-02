@@ -74,7 +74,7 @@ class Server(ServerConfig):
         regex_pattern = re.sub(param_pattern, r"(?P<\1>[^/]+)", path)
         return re.compile(regex_pattern + r"/?$")
 
-    async def generate_swagger_json(self):
+    async def generate_swagger_json(self, *args, **kwargs):
         if not SWAGGER_JSON["paths"]:
             for path, methods in self.routes.items():
                 if path in {"/docs", "/swagger.json"}:
@@ -82,7 +82,7 @@ class Server(ServerConfig):
                 SwaggerGenerator.generate_path_item(path, methods)
         return 200, SWAGGER_JSON
 
-    async def swagger_ui_handler(self):
+    async def swagger_ui_handler(self, *args, **kwargs):
         return 200, SwaggerGenerator.get_swagger_ui_html()
 
     def add_swagger(self):

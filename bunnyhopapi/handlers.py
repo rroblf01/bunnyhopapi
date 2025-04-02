@@ -24,7 +24,13 @@ class RouteHandler:
 
         return match.groupdict()
 
-    async def execute_handler(self, path: str, method: str, body: Optional[str] = None):
+    async def execute_handler(
+        self,
+        path: str,
+        method: str,
+        body: Optional[str] = None,
+        headers: Optional[Dict] = None,
+    ):
         route_info = self._find_route(path, method)
         if not route_info:
             return {
@@ -35,7 +41,7 @@ class RouteHandler:
 
         handler_info, params = route_info
         handler_info["params"] = params
-        return await self._process_handler(handler_info, path, method, body)
+        return await self._process_handler(handler_info, path, method, body, headers)
 
     def _find_route(self, path: str, method: str):
         if path in self.routes and method in self.routes[path]:
@@ -56,7 +62,12 @@ class RouteHandler:
         return "application/json", 404, {"error": error_msg}
 
     async def _process_handler(
-        self, route_info: Dict, path: str, method: str, body: Optional[str]
+        self,
+        route_info: Dict,
+        path: str,
+        method: str,
+        body: Optional[str],
+        headers: Optional[Dict] = None,
     ):
         handler = route_info["handler"]
         content_type = route_info["content_type"]
@@ -85,10 +96,10 @@ class RouteHandler:
 
         try:
             if not middleware:
-                result = handler(**validated_params)
+                result = handler(headers=headers, **validated_params)
             else:
                 # Aquí es donde se ejecuta la cadena de middlewares
-                result = middleware(**validated_params)
+                result = middleware(headers=headers, **validated_params)
 
             if inspect.isasyncgen(result):
                 return {

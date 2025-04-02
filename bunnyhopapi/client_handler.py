@@ -41,7 +41,7 @@ class ClientHandler:
             await self.websocket_handler.handle_websocket(reader, writer, path, headers)
             return
 
-        response = await self.route_handler.execute_handler(path, method, body)
+        response = await self.route_handler.execute_handler(path, method, body, headers)
         await self._send_response(writer, response)
 
     async def _read_request(self, reader) -> Optional[bytes]:

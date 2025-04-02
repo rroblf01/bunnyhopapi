@@ -10,7 +10,9 @@ async def greet_user(*args, **kwargs):
 
 
 async def log_request_middleware(endpoint, *args, **kwargs):
-    logger.info(f"START log_request_middleware {endpoint}")
+    logger.info(
+        f"START log_request_middleware {endpoint}, args: {args}, kwargs: {kwargs}"
+    )
     response = await endpoint(
         *args, **kwargs, origin="Middleware: log_request_middleware"
     )
@@ -19,7 +21,7 @@ async def log_request_middleware(endpoint, *args, **kwargs):
 
 
 async def auxiliary_middleware(endpoint, *args, **kwargs):
-    logger.info("START auxiliary_middleware")
+    logger.info(f"START auxiliary_middleware, args: {args}, kwargs: {kwargs}")
     response = await endpoint(
         *args, **kwargs, origin="Middleware: auxiliary_middleware"
     )
@@ -28,7 +30,7 @@ async def auxiliary_middleware(endpoint, *args, **kwargs):
 
 
 async def nested_middleware(endpoint, *args, **kwargs):
-    logger.info(f"START nested_middleware {endpoint}")
+    logger.info(f"START nested_middleware {endpoint}, args: {args}, kwargs: {kwargs}")
     parent_origin = kwargs.pop("origin")
     response = await endpoint(
         origin="Middleware: nested_middleware",
@@ -49,10 +51,10 @@ async def global_middleware(endpoint, *args, **kwargs):
 def main():
     server = Server(cors=True, port=int(os.getenv("PORT", "8000")))
 
-    nested_router = Router(prefix="/nested", middleware=nested_middleware)
+    nested_router = Router(prefix="/nested")
     nested_router.add_route("/greet", "GET", greet_user)
 
-    greeting_router = Router(prefix="/greetings", middleware=log_request_middleware)
+    greeting_router = Router(prefix="/greetings")
     greeting_router.include_router(nested_router)
 
     server.include_router(greeting_router)
