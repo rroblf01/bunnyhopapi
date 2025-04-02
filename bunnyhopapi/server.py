@@ -7,12 +7,12 @@ import uvloop
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Router(RouterBase):
     pass
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Server(ServerConfig, RouterBase):
     async def generate_swagger_json(self, *args, **kwargs):
         if not SWAGGER_JSON["paths"]:

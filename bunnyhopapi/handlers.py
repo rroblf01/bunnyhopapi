@@ -1,7 +1,7 @@
 import json
 import inspect
 from . import logger
-from typing import Dict, Optional, get_type_hints
+from typing import Dict, Optional, get_type_hints, get_origin
 import asyncio
 from pydantic import BaseModel, ValidationError
 from bunnyhopapi.models import PathParam
@@ -70,15 +70,16 @@ class RouteHandler:
         middleware = route_info.get("middleware")
 
         type_hints = get_type_hints(handler)
-        validated_params = self._validate_params(
-            route_info.get("params", {}), type_hints
-        )
-
-        if validated_params is None:
+        try:
+            validated_params = self._validate_params(
+                route_info.get("params", {}), type_hints
+            )
+        except ValueError as e:
+            logger.error(f"Validation error for {method} {path}: {str(e)}")
             return {
                 "content_type": content_type,
                 "status_code": 422,
-                "response_data": {"error": "Invalid path parameters"},
+                "response_data": {"error": str(e)},
             }
 
         if body:
@@ -153,11 +154,17 @@ class RouteHandler:
                 continue
 
             param_type = type_hints[param_name]
-            if isinstance(param_type, PathParam):
+            if get_origin(param_type) is PathParam:
                 try:
-                    validated_params[param_name] = param_type.validate(param_value)
-                except ValueError as e:
-                    return None
+                    validated_params[param_name] = param_type.__args__[0](param_value)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid value for parameter '{param_name}': '{param_value}' is not a valid {param_type.__args__[0].__name__}."
+                    )
+                except TypeError:
+                    raise ValueError(
+                        f"Type error for parameter '{param_name}': Expected type {param_type.__args__[0].__name__}, but got value '{param_value}'."
+                    )
             else:
                 validated_params[param_name] = param_value
         return validated_params

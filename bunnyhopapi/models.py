@@ -1,8 +1,9 @@
 import inspect
-from typing import AsyncGenerator, TypeVar, Generic, Type, Dict, Coroutine
+from typing import AsyncGenerator, TypeVar, Generic, Type, Dict, Coroutine, get_origin
 import re
 from functools import partial
 from dataclasses import dataclass, field
+from . import logger
 
 T = TypeVar("T")
 
@@ -18,14 +19,67 @@ class PathParam(Generic[T]):
             raise ValueError(f"Invalid value for type {self.param_type}: {value}")
 
 
-@dataclass
+class Endpoint:
+    path: str = ""
+
+    def get_routes(self):
+        """
+        Devuelve un diccionario con los métodos HTTP válidos, sus manejadores y middlewares.
+        """
+        sufix = "_WITH_PARAMS"
+        http_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
+        http_methods_with_params = {f"{method}{sufix}" for method in http_methods}
+        all_http_methods = http_methods.union(http_methods_with_params)
+        routes = {}
+        for method_name in dir(self):
+            if method_name.upper() in all_http_methods:
+                method = getattr(self, method_name)
+                if callable(method):
+                    annotations = getattr(method, "__annotations__", {})
+                    if annotations:
+                        param_names = "/".join(
+                            f"<{name}>"
+                            for name, value in annotations.items()
+                            if get_origin(value) is PathParam
+                        )
+                        route_path = f"{self.path}/{param_names}".replace("//", "/")
+                    else:
+                        route_path = self.path
+
+                    logger.info(f"Route: {route_path} - Method: {method_name}")
+                    middleware = getattr(method, "__middleware__", None)
+                    if route_path not in routes:
+                        routes[route_path] = {}
+
+                    http_method = method_name.upper().replace(sufix, "")
+                    routes[route_path][http_method] = {
+                        "handler": method,
+                        "content_type": RouterBase.CONTENT_TYPE_JSON,
+                        "middleware": middleware,
+                    }
+        return routes
+
+    @staticmethod
+    def with_middleware(middleware):
+        """
+        Decorador para asociar un middleware a un método.
+        """
+
+        def decorator(func):
+            setattr(func, "__middleware__", middleware)
+            return func
+
+        return decorator
+
+
+@dataclass(frozen=True)
 class ServerConfig:
     port: int = 8000
     host: str = "0.0.0.0"
     cors: bool = False
 
 
-@dataclass
+@dataclass(frozen=True)
 class RouterBase:
     routes: Dict = field(default_factory=dict)
     routes_with_params: Dict[str, re.Pattern] = field(default_factory=dict)
@@ -41,6 +95,20 @@ class RouterBase:
     CONTENT_TYPE_JSON = "application/json"
     CONTENT_TYPE_HTML = "text/html"
     CONTENT_TYPE_SSE = "text/event-stream"
+
+    def include_endpoint_class(self, endpoint_class: Type[Endpoint]):
+        """
+        Registra automáticamente los métodos de un endpoint como rutas.
+        """
+        endpoint = endpoint_class()
+        for path, context in endpoint.get_routes().items():
+            for method, handler in context.items():
+                self.add_route(
+                    path=path,
+                    method=method,
+                    handler=handler.get("handler"),
+                    middleware=handler.get("middleware"),
+                )
 
     def include_router(self, router):
         for path, context in router.routes.items():
@@ -145,3 +213,16 @@ class RouterBase:
             "handler": handler,
             "middleware": final_middleware,
         }
+
+    def register_endpoint(self, endpoint: Endpoint):
+        """
+        Registra automáticamente los métodos de un endpoint como rutas.
+        """
+        base_path = endpoint.path
+        for http_method, handler in endpoint.get_routes().items():
+            if "<" in base_path:
+                # Ruta con parámetros
+                self.add_route(base_path, http_method, handler)
+            else:
+                # Ruta sin parámetros
+                self.add_route(base_path, http_method, handler)
