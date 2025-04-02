@@ -5,6 +5,7 @@ import re
 from .models import ServerConfig
 from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .client_handler import ClientHandler
+from functools import partial
 
 from . import logger
 from dataclasses import dataclass, field
@@ -15,10 +16,10 @@ class Server(ServerConfig):
     routes: Dict = field(default_factory=dict)
     routes_with_params: Dict = field(default_factory=dict)
     websocket_handlers: Dict = field(default_factory=dict)
+    middleware: Callable = None
 
     def include_router(self, router: Router):
         for path, methods in router.routes.items():
-            # Normalizar el path completo
             full_path = path
             if not full_path.startswith("/"):
                 full_path = "/" + full_path
@@ -32,14 +33,34 @@ class Server(ServerConfig):
                     ]
 
             for method, content in methods.items():
+                handler = content.get("handler")
+                middleware = content.get("middleware")
+
+                if self.middleware and middleware:
+                    final_middleware = partial(
+                        self.middleware,
+                        endpoint=middleware,
+                    )
+                elif self.middleware:
+                    final_middleware = partial(self.middleware, endpoint=handler)
+                elif middleware:
+                    final_middleware = middleware
+                else:
+                    final_middleware = None
+
                 self.routes[full_path][method] = {
-                    "handler": content.get("handler"),
+                    "handler": handler,
                     "content_type": content.get("content_type"),
-                    "middleware": content.get("middleware"),
+                    "middleware": final_middleware,
                 }
 
         for path, handler in router.websocket_handlers.items():
-            self.websocket_handlers[path] = handler
+            if self.middleware:
+                final_handler = partial(self.middleware, endpoint=handler)
+            else:
+                final_handler = handler
+
+            self.websocket_handlers[path] = final_handler
 
     def add_route(
         self,

@@ -45,6 +45,7 @@ async def nested_middleware(endpoint, *args, **kwargs):
 async def global_middleware(endpoint, *args, **kwargs):
     logger.info("START global_middleware")
     response = await endpoint(*args, **kwargs)
+    logger.info("END global_middleware")
     return response
 
 
@@ -55,7 +56,9 @@ async def custom_middleware(endpoint, *args, **kwargs):
 
 
 def main():
-    server = Server(cors=True, port=int(os.getenv("PORT", "8000")))
+    server = Server(
+        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
+    )
 
     nested_router = Router(prefix="/nested", middleware=nested_middleware)
     nested_router.add_route(
