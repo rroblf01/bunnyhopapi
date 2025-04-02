@@ -81,6 +81,17 @@ async def stream_server_sent_events(*args, **kwargs):
     yield "event: end\ndata: All done!\n\n"
 
 
+async def websocket_middleware(endpoint, connection_id, message):
+    logger.info(
+        f"WebSocket middleware - Connection: {connection_id}, Message: {message}"
+    )
+    modified_message = f"Processed: {message}"
+
+    async for response in endpoint(connection_id, modified_message):
+        logger.info(f"WebSocket middleware - Response: {response}")
+        yield response
+
+
 async def websocket_echo_handler(connection_id, message):
     for i in range(10):
         yield f"event: message\ndata: {i}\n\n"
@@ -105,7 +116,9 @@ async def test_template_handler(*args, **kwargs):
 
 
 def main():
-    server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
+    server = Server(
+        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
+    )
 
     nested_router = Router(prefix="/nested", middleware=nested_middleware)
     nested_router.add_route(
@@ -131,6 +144,7 @@ def main():
     server.add_websocket_route(
         path="/ws/chat",
         handler=websocket_echo_handler,
+        middleware=websocket_middleware,
     )
 
     server.add_route(
