@@ -1,6 +1,6 @@
 from bunnyhopapi.server import Server, Router
 from bunnyhopapi import logger
-from bunnyhopapi.models import Endpoint, PathParam
+from bunnyhopapi.models import Endpoint, PathParam, QueryParam
 from pydantic import BaseModel
 import os
 import asyncio
@@ -23,8 +23,10 @@ class BodyModel(BaseModel):
 class UserEndpoint(Endpoint):
     path = "/user"
 
-    def get(self, headers) -> {200: MessageModel}:
-        return 200, {"message": "GET /user/"}
+    def get(
+        self, age: QueryParam[int], name: QueryParam[str], headers
+    ) -> {200: MessageModel}:
+        return 200, {"message": f"GET /user/ pathparams: age {age}, name {name}"}
 
     def get_with_params(self, user_id: PathParam[int], headers) -> {200: MessageModel}:
         """

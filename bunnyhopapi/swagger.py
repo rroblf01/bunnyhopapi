@@ -2,7 +2,7 @@ import re
 import inspect
 from typing import get_type_hints, get_origin
 from pydantic import BaseModel
-from bunnyhopapi.models import PathParam
+from bunnyhopapi.models import PathParam, QueryParam
 
 SWAGGER_JSON = {
     "openapi": "3.0.0",
@@ -85,6 +85,17 @@ class SwaggerGenerator:
                     {
                         "name": param_name,
                         "in": "path",
+                        "required": True,
+                        "schema": {"type": swagger_type},
+                    }
+                )
+            elif get_origin(param_type) is QueryParam:
+                type_name = param_type.__args__[0].__name__
+                swagger_type = TYPE_MAPPING.get(type_name, type_name)
+                parameters.append(
+                    {
+                        "name": param_name,
+                        "in": "query",
                         "required": True,
                         "schema": {"type": swagger_type},
                     }

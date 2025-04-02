@@ -1,4 +1,5 @@
 from typing import Dict
+from urllib.parse import urlparse, parse_qs
 
 
 class RequestParser:
@@ -20,13 +21,16 @@ class RequestParser:
     def parse_request(self, request_data: bytes):
         request_lines = request_data.decode().split("\r\n")
         if not request_lines:
-            return None, None, None, None
+            return None, None, None, None, None
 
         first_line = request_lines[0].split(" ", 2)
         if len(first_line) < 2:
-            return None, None, None, None
+            return None, None, None, None, None
 
-        method, path = first_line[0], first_line[1]
+        method, raw_path = first_line[0], first_line[1]
+        parsed_url = urlparse(raw_path)
+        path = parsed_url.path
+        query_params = {k: v[0] for k, v in parse_qs(parsed_url.query).items()}
         headers = {}
         body = None
 
@@ -48,4 +52,4 @@ class RequestParser:
             except (ValueError, UnicodeDecodeError):
                 pass
 
-        return method, path, headers, body
+        return method, path, headers, body, query_params

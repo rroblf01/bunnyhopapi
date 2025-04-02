@@ -19,6 +19,18 @@ class PathParam(Generic[T]):
             raise ValueError(f"Invalid value for type {self.param_type}: {value}")
 
 
+class QueryParam(Generic[T]):
+    def __init__(self, param_type: Type[T], required: bool = False):
+        self.param_type = param_type
+        self.required = required
+
+    def validate(self, value: str) -> T:
+        try:
+            return self.param_type(value)
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid value for type {self.param_type}: {value}")
+
+
 class Endpoint:
     path: str = ""
 
@@ -31,6 +43,7 @@ class Endpoint:
         http_methods_with_params = {f"{method}{sufix}" for method in http_methods}
         all_http_methods = http_methods.union(http_methods_with_params)
         routes = {}
+
         for method_name in dir(self):
             if method_name.upper() in all_http_methods:
                 method = getattr(self, method_name)

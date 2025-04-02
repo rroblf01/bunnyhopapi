@@ -4,7 +4,7 @@ from . import logger
 from typing import Dict, Optional, get_type_hints, get_origin
 import asyncio
 from pydantic import BaseModel, ValidationError
-from bunnyhopapi.models import PathParam
+from bunnyhopapi.models import PathParam, QueryParam
 from .models import RouterBase
 
 
@@ -30,6 +30,7 @@ class RouteHandler:
         method: str,
         body: Optional[str] = None,
         headers: Optional[Dict] = None,
+        query_params: Optional[Dict] = None,
     ):
         route_info = self._find_route(path, method)
         if not route_info:
@@ -37,7 +38,9 @@ class RouteHandler:
 
         handler_info, params = route_info
         handler_info["params"] = params
-        return await self._process_handler(handler_info, path, method, body, headers)
+        return await self._process_handler(
+            handler_info, path, method, body, headers, query_params
+        )
 
     def _find_route(self, path: str, method: str):
         if path in self.routes and method in self.routes[path]:
@@ -64,6 +67,7 @@ class RouteHandler:
         method: str,
         body: Optional[str],
         headers: Optional[Dict] = None,
+        query_params: Optional[Dict] = None,
     ):
         handler = route_info["handler"]
         content_type = route_info["content_type"]
@@ -72,7 +76,7 @@ class RouteHandler:
         type_hints = get_type_hints(handler)
         try:
             validated_params = self._validate_params(
-                route_info.get("params", {}), type_hints
+                route_info.get("params", {}), type_hints, query_params
             )
         except ValueError as e:
             logger.error(f"Validation error for {method} {path}: {str(e)}")
@@ -146,9 +150,9 @@ class RouteHandler:
                 "response_data": {"error": "Internal server error", "message": str(e)},
             }
 
-    def _validate_params(self, params: Dict, type_hints: Dict):
+    def _validate_params(self, params: Dict, type_hints: Dict, query_params: Dict):
         validated_params = {}
-        for param_name, param_value in params.items():
+        for param_name, param_value in {**params, **query_params}.items():
             if param_name not in type_hints:
                 validated_params[param_name] = param_value
                 continue
@@ -164,6 +168,13 @@ class RouteHandler:
                 except TypeError:
                     raise ValueError(
                         f"Type error for parameter '{param_name}': Expected type {param_type.__args__[0].__name__}, but got value '{param_value}'."
+                    )
+            elif get_origin(param_type) is QueryParam:
+                try:
+                    validated_params[param_name] = param_type.__args__[0](param_value)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid value for query parameter '{param_name}': '{param_value}' is not a valid {param_type.__args__[0].__name__}."
                     )
             else:
                 validated_params[param_name] = param_value

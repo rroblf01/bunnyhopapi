@@ -26,7 +26,9 @@ class ClientHandler:
         if request_data is None:
             return
 
-        method, path, headers, body = self.request_parser.parse_request(request_data)
+        method, path, headers, body, query_params = self.request_parser.parse_request(
+            request_data
+        )
 
         if method is None:
             await self._send_error_response(writer, 400, "Invalid request")
@@ -40,7 +42,9 @@ class ClientHandler:
             await self.websocket_handler.handle_websocket(reader, writer, path, headers)
             return
 
-        response = await self.route_handler.execute_handler(path, method, body, headers)
+        response = await self.route_handler.execute_handler(
+            path, method, body, headers, query_params
+        )
         await self._send_response(writer, response)
 
     async def _read_request(self, reader) -> Optional[bytes]:
