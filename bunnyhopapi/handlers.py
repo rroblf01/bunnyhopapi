@@ -112,8 +112,9 @@ class RouteHandler:
                     "Handler must return a tuple of (status_code, response_data)"
                 )
 
-            response_model = type_hints.get("return", {}).get(status_code)
-            if response_model:
+            if response_model := type_hints.get("return") and type_hints.get(
+                "return", {}
+            ).get(status_code):
                 try:
                     validated_data = response_model.validate(response_data)
 
