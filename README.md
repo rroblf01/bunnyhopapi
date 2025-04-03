@@ -52,6 +52,15 @@ class SseEndpoint(Endpoint):
 class WSEndpoint(Endpoint):
     path = "/ws/chat"
 
+    async def connection(self, headers):
+        logger.info("Client connected")
+        logger.info(f"Headers: {headers}")
+
+        return True
+
+    async def disconnect(self, connection_id, headers):
+        logger.info(f"Client {connection_id} disconnected")
+
     async def ws(self, connection_id, message, headers):
         logger.info(f"Received message from {connection_id}: {message}")
         for i in range(10):
