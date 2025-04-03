@@ -6,7 +6,7 @@ import os
 import asyncio
 from bunnyhopapi.templates import (
     render_jinja_template,
-    serve_static_html,
+    serve_static_file,
     create_template_env,
 )
 
@@ -69,7 +69,7 @@ class SseTemplateEndpoint(Endpoint):
 
     @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
-        return await serve_static_html("example/templates/static_html/sse_index.html")
+        return await serve_static_file("example/templates/static_html/sse_index.html")
 
 
 class WSEndpoint(Endpoint):
@@ -96,7 +96,7 @@ class WSTemplateEndpoint(Endpoint):
 
     @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
-        return await serve_static_html("example/templates/static_html/ws_index.html")
+        return await serve_static_file("example/templates/static_html/ws_index.html")
 
 
 class JinjaTemplateEndpoint(Endpoint):
@@ -131,6 +131,9 @@ def main():
     server = Server(
         cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
     )
+
+    static_folder = os.path.join(os.path.dirname(__file__), "static")
+    server.include_static_folder(static_folder)
 
     user_router = Router(middleware=router_middleware)
     user_router.include_endpoint_class(UserEndpoint)

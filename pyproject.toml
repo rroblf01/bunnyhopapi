@@ -1,13 +1,13 @@
 [project]
 name = "bunnyhopapi"
-version = "1.1.1"
+version = "1.2.1"
 description = "BunnyHopApi is a lightweight and fast web framework designed to handle modern web development needs."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
     "jinja2==3.1.6",
-    "pydantic==2.11.0",
+    "pydantic==2.11.2",
     "uvloop==0.21.0",
 ]
 

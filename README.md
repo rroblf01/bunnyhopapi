@@ -130,7 +130,7 @@ class SseTemplateEndpoint(Endpoint):
 
     @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
-        return await serve_static_html("example/templates/static_html/sse_index.html")
+        return await serve_static_file("example/templates/static_html/sse_index.html")
 ```
 
 #### Example: Dynamic Page
@@ -165,6 +165,27 @@ Running 30s test @ http://127.0.0.1:8000/health
 Requests/sec:  41302.60
 Transfer/sec:      9.41MB
 ```
+
+### 7. Serving Static Content
+BunnyHopApi allows marking an entire folder as static to serve all its content directly.
+
+#### Example: Static Folder Configuration
+```python
+import os
+from bunnyhopapi.server import Server
+
+def main():
+    server = Server(cors=True, port=8000)
+
+    # Mark the "static" folder as static
+    static_folder = os.path.join(os.path.dirname(__file__), "static")
+    server.include_static_folder(static_folder)
+
+    server.run()
+```
+
+In this example, all files inside the `static` folder will be accessible directly from the browser. For example:
+- A file `static/style.css` will be accessible at `http://localhost:8000/static/style.css`.
 
 ## Installation
 
