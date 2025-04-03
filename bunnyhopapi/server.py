@@ -1,4 +1,5 @@
 import asyncio
+import os
 from .models import ServerConfig, RouterBase
 from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .client_handler import ClientHandler
@@ -58,13 +59,23 @@ class Server(ServerConfig, RouterBase):
         async with server:
             await server.serve_forever()
 
-    def run(self):
+    def run(self, workers: int = os.cpu_count() or 1):
         self.add_swagger()
 
         uvloop.install()
+        processes = []
         try:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self._run())
+            for _ in range(workers):
+                pid = os.fork()
+                if pid == 0:  # Proceso hijo
+                    loop = asyncio.get_event_loop()
+                    loop.run_until_complete(self._run())
+                    os._exit(0)
+                else:  # Proceso padre
+                    processes.append(pid)
+
+            for pid in processes:
+                os.waitpid(pid, 0)
         except KeyboardInterrupt:
             logger.info("Server stopped by user")
         finally:
