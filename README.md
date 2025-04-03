@@ -159,12 +159,11 @@ wrk -t12 -c400 -d30s --timeout 1m http://127.0.0.1:8000/health
 Running 30s test @ http://127.0.0.1:8000/health
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    87.17ms  660.53ms  13.33s    97.86%
-    Req/Sec     0.91k   526.28     2.51k    63.28%
-  325639 requests in 30.08s, 74.22MB read
-  Socket errors: connect 0, read 62, write 0, timeout 0
-Requests/sec:  10824.54
-Transfer/sec:      2.47MB
+    Latency     6.68ms    7.03ms 244.27ms   89.09%
+    Req/Sec     3.48k     1.14k    9.78k    62.59%
+  1243109 requests in 30.10s, 283.34MB read
+Requests/sec:  41302.60
+Transfer/sec:      9.41MB
 ```
 
 ## Installation
@@ -197,8 +196,10 @@ pip install bunnyhopapi
    ```python
    server = Server(cors=True, middleware=global_middleware, port=8000)
    server.include_endpoint_class(HealthEndpoint)
-   server.run()
+   server.run(workers=4)  # You can specify the number of workers (default: os.cpu_count())
    ```
+
+   By default, the number of workers is set to the number of CPU cores available (`os.cpu_count()`), but you can customize it by passing the `workers` argument to the `run` method.
 
 ## Example Project
 
