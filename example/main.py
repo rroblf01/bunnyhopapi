@@ -27,9 +27,17 @@ class HealthEndpoint(Endpoint):
         return 200, {"message": "GET /health"}
 
 
+async def endpoint_middleware(endpoint, headers, **kwargs):
+    logger.info("endpoint_middleware: Before to call the endpoint")
+    response = await endpoint(headers=headers, **kwargs)
+    logger.info("endpoint_middleware: After to call the endpoint")
+    return response
+
+
 class UserEndpoint(Endpoint):
     path = "/user"
 
+    @Endpoint.with_middleware(endpoint_middleware)
     def get(
         self, headers, age: QueryParam[int], name: QueryParam[str] = "Alice"
     ) -> {200: MessageModel}:
@@ -39,7 +47,6 @@ class UserEndpoint(Endpoint):
         """
         Obtiene un usuario por ID.
         """
-        logger.info(f"header: {headers}")
         return 200, {"message": f"GET /user/{user_id}"}
 
     def post(self, headers, body: BodyModel) -> {201: MessageModel}:
@@ -105,10 +112,26 @@ class JinjaTemplateEndpoint(Endpoint):
         return await render_jinja_template("index.html", self.template_env)
 
 
-def main():
-    server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
+async def router_middleware(endpoint, headers, **kwargs):
+    logger.info("router_middleware: Before to call the endpoint")
+    response = await endpoint(headers=headers, **kwargs)  # Ajustar argumentos
+    logger.info("router_middleware: After to call the endpoint")
+    return response
 
-    user_router = Router()
+
+async def global_middleware(endpoint, headers, **kwargs):
+    logger.info("global_middleware: Before to call the endpoint")
+    response = await endpoint(headers=headers, **kwargs)  # Ajustar argumentos
+    logger.info("global_middleware: After to call the endpoint")
+    return response
+
+
+def main():
+    server = Server(
+        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
+    )
+
+    user_router = Router(middleware=router_middleware)
     user_router.include_endpoint_class(UserEndpoint)
 
     server.include_router(user_router)

@@ -1,309 +1,200 @@
-```markdown
-# BunnyHop API - HTTP Server Framework
+# BunnyHopApi
 
-BunnyHop is a lightweight asynchronous HTTP server framework built with Python's asyncio. It provides a simple way to create RESTful APIs with support for WebSockets and Server-Sent Events (SSE).
+BunnyHopApi is a lightweight and fast web framework designed to handle modern web development needs. It provides full support for:
 
-## Features
+- **HTTP Requests**: Easily handle all HTTP methods.
+- **SSE (Server-Sent Events)**: Support for server-sent events.
+- **WebSockets**: Real-time bidirectional communication.
+- **Middlewares**: 
+  - At the server level.
+  - At the route level.
+  - At the endpoint level.
+- **CORS**: Simple configuration to enable CORS.
+- **Web Page Rendering**:
+  - Static pages.
+  - Dynamic pages with Jinja2.
+- **Type Validation**: Automatic validation for query parameters, path parameters, and request bodies.
+- **Swagger Documentation**: Automatically generated Swagger documentation for all endpoints.
+- **Exceptional Performance**: Designed to be fast and efficient.
 
-- 🚀 Asynchronous request handling
-- 📡 WebSocket support
-- 🔄 Server-Sent Events (SSE) support
-- 📝 Automatic Swagger/OpenAPI documentation
-- 🛡️ CORS support
-- 🏗️ Pydantic model validation
-- 📌 Path parameter handling
-- 🔄 Sync and async handler support
-- � Router support for modular API design
+## Key Features
+
+### 1. HTTP, SSE, and WebSocket Support
+BunnyHopApi allows handling standard HTTP requests, SSE for real-time updates, and WebSockets for bidirectional communication.
+
+#### Example: HTTP Endpoint
+```python
+class HealthEndpoint(Endpoint):
+    path = "/health"
+
+    def get(self, headers):
+        return 200, {"message": "GET /health"}
+```
+
+#### Example: SSE Endpoint
+```python
+class SseEndpoint(Endpoint):
+    path = "/sse/events"
+
+    @Endpoint.with_content_type(Router.CONTENT_TYPE_SSE)
+    async def get(self, headers) -> {200: str}:
+        events = ["start", "progress", "complete"]
+
+        for event in events:
+            yield f"event: {event}\ndata: Processing {event}\n\n"
+            await asyncio.sleep(1.5)
+
+        yield "event: end\ndata: Processing complete\n\n"
+```
+
+#### Example: WebSocket Endpoint
+```python
+class WSEndpoint(Endpoint):
+    path = "/ws/chat"
+
+    async def ws(self, connection_id, message, headers):
+        logger.info(f"Received message from {connection_id}: {message}")
+        for i in range(10):
+            yield f"event: message\ndata: {i}\n\n"
+            await asyncio.sleep(0.2)
+```
+
+### 2. Flexible Middlewares
+Define middlewares at different levels:
+- **Global**: Applied to all routes and endpoints.
+- **Route-specific**: Applied to a specific set of endpoints.
+- **Endpoint-specific**: Applied to an individual endpoint.
+
+#### Example: Middleware
+```python
+async def global_middleware(endpoint, headers, **kwargs):
+    logger.info("global_middleware: Before calling the endpoint")
+    response = await endpoint(headers=headers, **kwargs)
+    logger.info("global_middleware: After calling the endpoint")
+    return response
+```
+
+### 3. Type Validation
+BunnyHopApi provides automatic type validation for query parameters, path parameters, and request bodies using Pydantic models.
+
+#### Example: Query Parameters
+```python
+class UserEndpoint(Endpoint):
+    path = "/user"
+
+    def get(
+        self, headers, age: QueryParam[int], name: QueryParam[str] = "Alice"
+    ) -> {200: MessageModel}:
+        return 200, {"message": f"GET /user/ pathparams: age {age}, name {name}"}
+```
+
+#### Example: Path Parameters
+```python
+    def get_with_params(self, user_id: PathParam[int], headers) -> {200: MessageModel}:
+        return 200, {"message": f"GET /user/{user_id}"}
+```
+
+#### Example: Request Body
+```python
+class BodyModel(BaseModel):
+    name: str
+    age: int
+
+    def post(self, headers, body: BodyModel) -> {201: MessageModel}:
+        return 201, {"message": f"POST /user/ - {body.name} - {body.age}"}
+```
+
+### 4. Swagger Documentation
+BunnyHopApi automatically generates Swagger documentation for all endpoints, making it easy to explore and test your API.
+
+#### Example: Access Swagger
+Once the server is running, visit `/docs` in your browser to view the Swagger UI.
+
+### 5. Web Page Rendering
+- **Static Pages**: Serve HTML files directly.
+- **Dynamic Pages**: Use Jinja2 for dynamic template rendering.
+
+#### Example: Static Page
+```python
+class SseTemplateEndpoint(Endpoint):
+    path = "/sse"
+
+    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
+    async def get(self, headers):
+        return await serve_static_html("example/templates/static_html/sse_index.html")
+```
+
+#### Example: Dynamic Page
+```python
+class JinjaTemplateEndpoint(Endpoint):
+    path = "/"
+
+    def __init__(self):
+        super().__init__()
+        self.template_env = create_template_env("example/templates/jinja/")
+
+    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
+    async def get(self, headers):
+        return await render_jinja_template("index.html", self.template_env)
+```
+
+### 6. Performance
+BunnyHopApi is extremely fast. Here's a benchmark that demonstrates its performance:
+
+```bash
+wrk -t12 -c400 -d30s --timeout 1m http://127.0.0.1:8000/health
+```
+
+**Results:**
+```
+Running 30s test @ http://127.0.0.1:8000/health
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    87.17ms  660.53ms  13.33s    97.86%
+    Req/Sec     0.91k   526.28     2.51k    63.28%
+  325639 requests in 30.08s, 74.22MB read
+  Socket errors: connect 0, read 62, write 0, timeout 0
+Requests/sec:  10824.54
+Transfer/sec:      2.47MB
+```
 
 ## Installation
+
+You can install BunnyHopApi directly from PyPI:
 
 ```bash
 pip install bunnyhopapi
 ```
 
-## Quick Start
+## Usage
 
-```python
-from bunnyhopapi.server import Server
-from bunnyhopapi.router import Router
-from bunnyhopapi.models import PathParam
-from pydantic import BaseModel
-import asyncio
+1. Create a new Python file and import BunnyHopApi:
+   ```python
+   from bunnyhopapi.server import Server
+   from bunnyhopapi.models import Endpoint
+   ```
 
-# Define your models
-class HelloResponse(BaseModel):
-    message: str
+2. Define your endpoints and middlewares.
 
-# Create a router
-hello_router = Router(prefix="/hello")
+    ```python
+    class HealthEndpoint(Endpoint):
+        path = "/health"
 
-# Add routes to the router
-@hello_router.route("/world", "GET")
-async def hello() -> {200: HelloResponse}:
-    return 200, {"message": "Hello, World!"}
+        def get(self, headers):
+            return 200, {"message": "GET /health"}
+    ```
 
-@hello_router.route("/<name>", "GET")
-async def hello_name(name: PathParam(str)) -> {200: HelloResponse}:
-    return 200, {"message": f"Hello, {name}!"}
+3. Start the server:
+   ```python
+   server = Server(cors=True, middleware=global_middleware, port=8000)
+   server.include_endpoint_class(HealthEndpoint)
+   server.run()
+   ```
 
-# Create and configure server
-def main():
-    server = Server(cors=True)
-    server.include_router(hello_router)  # Include the router
-    server.run()
+## Example Project
 
-if __name__ == "__main__":
-    main()
-```
-
-## API Documentation
-
-By default, the server provides Swagger UI documentation at `/docs` and the OpenAPI spec at `/swagger.json`.
-
-## Handler Types
-
-### Basic HTTP Handler
-
-```python
-async def hello() -> {200: HelloResponse}:
-    return 200, {"message": "Hello, World!"}
-```
-
-### Path Parameters
-
-```python
-async def room_handler(room_id: PathParam(int)) -> {200: HelloResponse}:
-    return 200, {"message": f"Room ID is {room_id}"}
-```
-
-### Request Body Validation
-
-```python
-class Room(BaseModel):
-    name: str
-    capacity: int
-
-async def create_room(room: Room) -> {200: HelloResponse}:
-    return 200, {"message": f"Room {room.name} created"}
-```
-
-### Server-Sent Events (SSE)
-
-```python
-async def sse_events() -> {200: str}:
-    events = ["start", "progress", "complete"]
-    for event in events:
-        yield f"event: {event}\ndata: Processing {event}\n\n"
-        await asyncio.sleep(1.5)
-```
-
-### WebSocket Handler
-
-```python
-async def ws_echo(connection_id, message):
-    for i in range(10):
-        yield f"event: message\ndata: {i}\n\n"
-        await asyncio.sleep(0.2)
-```
-
-## Router Usage
-
-Routers allow you to organize your API endpoints modularly:
-
-```python
-from bunnyhopapi.router import Router
-
-# Create router with prefix
-user_router = Router(prefix="/users")
-
-# Add routes to router (decorator style)
-@user_router.route("/", "GET")
-async def get_users() -> {200: UserListResponse}:
-    return 200, {"users": [...]}
-
-# Or traditional style
-user_router.add_route("/<user_id>", "GET", get_user)
-
-# Include router in main server
-server.include_router(user_router)
-```
-
-## Router-Level Middleware
-
-BunnyHop API supports middleware at the router level, allowing you to apply specific middleware to all endpoints within a router. This is useful for modularizing middleware logic and applying it only where needed.
-
-### Example
-
-```python
-from bunnyhopapi.router import Router
-from bunnyhopapi import logger
-
-# Define middleware
-async def log_request_middleware(endpoint, *args, **kwargs):
-    logger.info(f"START log_request_middleware {endpoint}")
-    response = await endpoint(*args, **kwargs)
-    logger.info("END log_request_middleware")
-    return response
-
-# Create a router with middleware
-router_with_middleware = Router(prefix="/secure", middleware=log_request_middleware)
-
-@router_with_middleware.route("/data", "GET")
-async def secure_data():
-    return 200, {"message": "This is secure data"}
-```
-
-In this example, the `log_request_middleware` will be applied to all routes within the `/secure` router.
-
-## Multiple Routers for the Same Endpoint
-
-BunnyHop API allows you to include multiple routers that can define routes for the same endpoint. This enables you to layer functionality or organize routes modularly.
-
-### Example
-
-```python
-from bunnyhopapi.router import Router
-
-# Define two routers
-router_a = Router(prefix="/shared")
-router_b = Router(prefix="/shared")
-
-@router_a.route("/endpoint", "GET")
-async def handler_a():
-    return 200, {"message": "Response from Router A"}
-
-@router_b.route("/endpoint", "GET")
-async def handler_b():
-    return 200, {"message": "Response from Router B"}
-
-# Include both routers in the server
-def main():
-    server = Server(cors=True)
-    server.include_router(router_a)
-    server.include_router(router_b)
-    server.run()
-
-if __name__ == "__main__":
-    main()
-```
-
-In this example, both `router_a` and `router_b` define a route for `/shared/endpoint`. The server will resolve the route based on the order in which the routers are included.
-
-## Server Configuration
-
-```python
-server = Server(
-    port=8000,         # default: 8000
-    host="0.0.0.0",    # default: "0.0.0.0"
-    cors=True          # default: False
-)
-```
-
-## Adding Routes
-
-### Directly to server
-```python
-server.add_route(
-    path="/hello",
-    method="GET",
-    handler=hello,
-    content_type="application/json"  # default
-)
-
-server.add_websocket_route(
-    path="/ws/chat",
-    handler=ws_echo
-)
-```
-
-### Via Router
-```python
-router = Router(prefix="/api")
-router.add_route("/test", "GET", test_handler)
-server.include_router(router)
-```
-
-## Response Types
-
-Handlers can specify their response types using Python type hints:
-
-```python
-async def hello() -> {200: HelloResponse, 404: ErrorResponse}:
-    if condition:
-        return 200, HelloResponse(message="Hello")
-    else:
-        return 404, ErrorResponse(error="Not found")
-```
-
-## Performance
-
-The BunnyHop API server is highly efficient and can handle a large number of requests per second. Below is an example of a performance test using `wrk`:
-
-```bash
-wrk -t12 -c400 -d30s http://127.0.0.1:8000/
-```
-
-Results:
-
-```
-Running 30s test @ http://127.0.0.1:8000/
-  12 threads and 400 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    16.62ms   32.06ms 864.88ms   98.20%
-    Req/Sec   808.15    479.60     3.45k    67.91%
-  286177 requests in 30.10s, 63.59MB read
-Requests/sec:   9508.94
-Transfer/sec:      2.11MB
-```
-
-This demonstrates that the server can handle approximately **9508.94 requests per second** under the specified test conditions.
-
-## Examples
-
-See the example in the Quick Start section or check the full example below:
-
-```python
-from bunnyhopapi.server import Server
-from bunnyhopapi.router import Router
-from bunnyhopapi.models import PathParam
-from pydantic import BaseModel
-import asyncio
-
-class HelloResponse(BaseModel):
-    message: str
-
-class HealthCheckResponse(BaseModel):
-    status: str
-
-class Room(BaseModel):
-    name: str
-    capacity: int
-
-# Create routers
-api_router = Router(prefix="/api")
-hello_router = Router(prefix="/hello")
-
-# Add routes to routers
-@hello_router.route("/world", "GET")
-async def hello() -> {200: HelloResponse}:
-    return 200, {"message": "Hello, World!"}
-
-@api_router.route("/health", "GET")
-async def healthcheck() -> {200: HealthCheckResponse}:
-    return 200, {"status": "OK"}
-
-# Create and configure server
-def main():
-    server = Server(cors=True)
-    server.include_router(hello_router)
-    server.include_router(api_router)
-    server.run()
-
-if __name__ == "__main__":
-    main()
-```
+Check the [`example/main.py`](example/main.py) file for a complete example of how to use BunnyHopApi.
 
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-```
