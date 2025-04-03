@@ -29,7 +29,8 @@ class HealthEndpoint(Endpoint):
 
 async def endpoint_middleware(endpoint, headers, **kwargs):
     logger.info("endpoint_middleware: Before to call the endpoint")
-    response = await endpoint(headers=headers, **kwargs)
+    result = endpoint(headers=headers, **kwargs)
+    response = await result if asyncio.iscoroutine(result) else result
     logger.info("endpoint_middleware: After to call the endpoint")
     return response
 
@@ -39,14 +40,12 @@ class UserEndpoint(Endpoint):
 
     @Endpoint.with_middleware(endpoint_middleware)
     def get(
-        self, headers, age: QueryParam[int], name: QueryParam[str] = "Alice"
+        self, headers, age: QueryParam[int] = 1, name: QueryParam[str] = "Alice"
     ) -> {200: MessageModel}:
+        logger.info("get /user/ - QueryParam")
         return 200, {"message": f"GET /user/ pathparams: age {age}, name {name}"}
 
     def get_with_params(self, user_id: PathParam[int], headers) -> {200: MessageModel}:
-        """
-        Obtiene un usuario por ID.
-        """
         return 200, {"message": f"GET /user/{user_id}"}
 
     def post(self, headers, body: BodyModel) -> {201: MessageModel}:
@@ -114,14 +113,16 @@ class JinjaTemplateEndpoint(Endpoint):
 
 async def router_middleware(endpoint, headers, **kwargs):
     logger.info("router_middleware: Before to call the endpoint")
-    response = await endpoint(headers=headers, **kwargs)  # Ajustar argumentos
+    result = endpoint(headers=headers, **kwargs)
+    response = await result if asyncio.iscoroutine(result) else result
     logger.info("router_middleware: After to call the endpoint")
     return response
 
 
 async def global_middleware(endpoint, headers, **kwargs):
     logger.info("global_middleware: Before to call the endpoint")
-    response = await endpoint(headers=headers, **kwargs)  # Ajustar argumentos
+    result = endpoint(headers=headers, **kwargs)
+    response = await result if asyncio.iscoroutine(result) else result
     logger.info("global_middleware: After to call the endpoint")
     return response
 

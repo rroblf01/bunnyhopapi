@@ -18,7 +18,6 @@ def run_server():
 
 
 if __name__ == "__main__":
-    # Configurar el profiling
     profiler = cProfile.Profile()
     profiler.enable()
 
@@ -29,7 +28,6 @@ if __name__ == "__main__":
     finally:
         profiler.disable()
 
-        # Guardar los resultados
         stats = pstats.Stats(profiler)
         stats.sort_stats(pstats.SortKey.CUMULATIVE)
         stats.dump_stats("server_profile.prof")

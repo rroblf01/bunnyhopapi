@@ -84,7 +84,6 @@ class ClientHandler:
 
     async def _send_response(self, writer, response):
         try:
-            # Caso 1: Respuesta SSE (Streaming)
             if (
                 isinstance(response, dict)
                 and response.get("content_type") == RouterBase.CONTENT_TYPE_SSE
@@ -101,7 +100,6 @@ class ClientHandler:
 
                 try:
                     async for chunk in generator:
-                        # Optimización: Evitar encode si ya es bytes
                         if isinstance(chunk, str):
                             chunk = chunk.encode("utf-8")
                         writer.write(chunk)
@@ -111,7 +109,6 @@ class ClientHandler:
                     await writer.wait_closed()
                 return
 
-            # Caso 2: Respuesta normal (tupla o dict)
             if isinstance(response, tuple) and len(response) == 3:
                 content_type, status_code, response_data = response
             elif isinstance(response, dict):
@@ -119,7 +116,6 @@ class ClientHandler:
                 status_code = response["status_code"]
                 response_data = response["response_data"]
             else:
-                # Respuesta de error por formato desconocido
                 content_type = "application/json"
                 status_code = 500
                 response_data = {
@@ -127,7 +123,6 @@ class ClientHandler:
                     "message": "Unknown response format",
                 }
 
-            # Preparar y enviar respuesta
             prepared = self.response_handler.prepare_response(
                 content_type, status_code, response_data
             )

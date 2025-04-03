@@ -20,21 +20,17 @@ class RequestParser:
 
     async def parse_request(self, request_data: bytes):
         try:
-            # Optimización: Buscar el fin de headers directamente en bytes
             header_end = request_data.find(b"\r\n\r\n")
             if header_end == -1:
                 return None, None, None, None, None
 
-            # Dividir solo la parte de headers (evita decodificar el body innecesariamente)
             header_data = request_data[:header_end]
 
-            # Decodificación optimizada solo de los headers
             try:
                 headers_text = header_data.decode("latin-1")
             except UnicodeDecodeError:
                 return None, None, None, None, None
 
-            # Procesar primera línea
             first_line_end = headers_text.find("\r\n")
             if first_line_end == -1:
                 return None, None, None, None, None
@@ -46,7 +42,6 @@ class RequestParser:
             method = first_line[0]
             raw_path = first_line[1]
 
-            # Optimización: Parseo manual de URL (más rápido que urlparse para casos simples)
             path_end = raw_path.find("?")
             if path_end == -1:
                 path = raw_path
@@ -56,14 +51,12 @@ class RequestParser:
                 query_string = raw_path[path_end + 1 :]
                 query_params = {}
 
-                # Parseo manual de query string (optimizado)
                 if query_string:
                     for pair in query_string.split("&"):
                         if "=" in pair:
                             key, value = pair.split("=", 1)
-                            query_params[key] = value.split(",")[0]  # Solo primer valor
+                            query_params[key] = value.split(",")[0]
 
-            # Parseo de headers optimizado
             headers = {}
             header_lines = headers_text[first_line_end + 2 :].split("\r\n")
             for line in header_lines:
@@ -75,7 +68,6 @@ class RequestParser:
                     value = line[colon_pos + 1 :].strip()
                     headers[key] = value
 
-            # Procesamiento del body (solo si es necesario)
             body = None
             if "content-length" in headers:
                 try:
@@ -84,7 +76,6 @@ class RequestParser:
                     if content_length > 0 and (body_start + content_length) <= len(
                         request_data
                     ):
-                        # Decodificar solo si es texto (verificar content-type)
                         if headers.get("content-type", "").startswith(
                             "text/"
                         ) or "application/json" in headers.get("content-type", ""):

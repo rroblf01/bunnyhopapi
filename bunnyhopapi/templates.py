@@ -3,18 +3,12 @@ from . import logger
 
 
 def create_template_env(path: str):
-    """
-    Crea un entorno de Jinja2 para renderizar plantillas.
-    """
     return Environment(loader=FileSystemLoader(path))
 
 
 async def render_jinja_template(
     template_name: str, template_env: Environment, **context
 ):
-    """
-    Renderiza una plantilla Jinja2 con el contexto proporcionado.
-    """
     try:
         template = template_env.get_template(template_name)
         return 200, template.render(**context)
@@ -25,9 +19,6 @@ async def render_jinja_template(
 
 
 async def serve_static_html(file_path: str, *args, **kwargs):
-    """
-    Sirve un archivo HTML estático desde el sistema de archivos.
-    """
     try:
         with open(file_path, "r", encoding="utf-8") as html_file:
             return 200, html_file.read()

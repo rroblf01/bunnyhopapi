@@ -53,7 +53,7 @@ class Server(ServerConfig, RouterBase):
         )
 
         addr = server.sockets[0].getsockname()
-        logger.info(f"Servidor HTTP escuchando en {addr}")
+        logger.info(f"HTTP server listening on {addr}")
 
         async with server:
             await server.serve_forever()

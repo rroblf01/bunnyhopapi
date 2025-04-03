@@ -13,7 +13,6 @@ class WebSocketHandler:
         self.websocket_handlers = websocket_handlers
 
     async def _read_websocket_frame(self, reader):
-        """Lee un frame WebSocket y devuelve el mensaje decodificado."""
         header = await reader.read(2)
         if len(header) < 2:
             raise ConnectionResetError("Incomplete frame header")
@@ -42,7 +41,6 @@ class WebSocketHandler:
         return opcode, data.decode("utf-8")
 
     async def _write_websocket_frame(self, writer, message):
-        """Envía un mensaje como frame WebSocket."""
         message_bytes = message.encode("utf-8")
         frame = bytearray()
         frame.append(0x81)
@@ -62,7 +60,6 @@ class WebSocketHandler:
         connection = handler_info.get("connection")
         disconnect = handler_info.get("disconnect")
 
-        logger.info(f"WebSocket handler_info {handler_info}")
         key = headers.get("sec-websocket-key")
         if not key:
             logger.info("No Sec-WebSocket-Key found in headers")

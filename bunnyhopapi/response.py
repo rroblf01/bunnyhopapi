@@ -35,11 +35,9 @@ class ResponseHandler:
         elif isinstance(response_data, str):
             response_data = response_data.encode("utf-8")
 
-        # Handle error responses
         if status_code >= 400:
             return self._prepare_error_response(status_code, response_data)
 
-        # Normal response
         return self._prepare_normal_response(content_type, status_code, response_data)
 
     def _prepare_sse_response(self, generator: AsyncGenerator):

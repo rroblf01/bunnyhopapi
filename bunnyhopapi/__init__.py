@@ -1,5 +1,3 @@
-# Este archivo puede estar vacío o contener inicializaciones del paquete.
-
 import logging
 
 logging.basicConfig(

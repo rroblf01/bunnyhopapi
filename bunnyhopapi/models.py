@@ -35,9 +35,6 @@ class Endpoint:
     path: str = ""
 
     def get_routes(self):
-        """
-        Devuelve un diccionario con los métodos HTTP válidos, sus manejadores y middlewares.
-        """
         sufix = "_WITH_PARAMS"
         http_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
         http_methods_with_params = {f"{method}{sufix}" for method in http_methods}
@@ -68,14 +65,6 @@ class Endpoint:
                         routes[route_path] = {}
 
                     http_method = method_name.upper().replace(sufix, "")
-                    logger.info(
-                        f"Registering route: {route_path} with method: {http_method}"
-                    )
-                    logger.info(f"Middleware: {middleware}")
-                    logger.info(f"Handler: {method}")
-                    logger.info(
-                        f"Content-Type: {getattr(method, '__content_type__', None)}"
-                    )
                     routes[route_path][http_method] = {
                         "handler": method,
                         "content_type": getattr(
@@ -86,9 +75,6 @@ class Endpoint:
         return routes
 
     def get_ws_routes(self):
-        """
-        Devuelve un diccionario con los métodos HTTP válidos, sus manejadores y middlewares.
-        """
         route_path = self.path
         routes = {}
         routes[route_path] = {}
@@ -116,10 +102,6 @@ class Endpoint:
 
     @staticmethod
     def with_middleware(middleware):
-        """
-        Decorador para asociar un middleware a un método.
-        """
-
         def decorator(func):
             setattr(func, "__middleware__", middleware)
             return func
@@ -128,10 +110,6 @@ class Endpoint:
 
     @staticmethod
     def with_content_type(content_type):
-        """
-        Decorador para asociar un content_type a un método.
-        """
-
         def decorator(func):
             setattr(func, "__content_type__", content_type)
             return func
@@ -164,9 +142,6 @@ class RouterBase:
     CONTENT_TYPE_SSE = "text/event-stream"
 
     def include_endpoint_class(self, endpoint_class: Type[Endpoint]):
-        """
-        Registra automáticamente los métodos de un endpoint como rutas.
-        """
         endpoint = endpoint_class()
         for path, context in endpoint.get_routes().items():
             for method, handler in context.items():
@@ -179,7 +154,6 @@ class RouterBase:
                 )
 
         for path, context in endpoint.get_ws_routes().items():
-            logger.info(f"Registering websocket route: {context}")
             self.add_websocket_route(
                 path=path,
                 handler=context.get("handler"),
