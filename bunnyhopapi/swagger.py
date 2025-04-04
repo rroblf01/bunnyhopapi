@@ -164,12 +164,19 @@ class SwaggerGenerator:
     def _add_response_model(status_code, model):
         if "components" not in SWAGGER_JSON:
             SWAGGER_JSON["components"] = {"schemas": {}}
-        SWAGGER_JSON["components"]["schemas"][model.__name__] = model.schema()
+        if model.__name__ not in SWAGGER_JSON["components"]["schemas"]:
+            SWAGGER_JSON["components"]["schemas"][model.__name__] = model.schema(
+                ref_template="#/components/schemas/{model}"
+            )
 
         return {
             status_code: {
                 "description": f"Response with status {status_code}",
-                "content": {"application/json": {"schema": model.schema()}},
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": f"#/components/schemas/{model.__name__}"}
+                    }
+                },
             }
         }
 
