@@ -1,6 +1,8 @@
 import asyncio
 import os
 import mimetypes
+import signal
+from multiprocessing import Process
 from .templates import serve_static_file
 from .models import ServerConfig, RouterBase
 from .swagger import SwaggerGenerator, SWAGGER_JSON
@@ -107,19 +109,33 @@ class Server(ServerConfig, RouterBase):
 
         uvloop.install()
         processes = []
+
+        def start_worker():
+            try:
+                asyncio.run(self._run())
+            except KeyboardInterrupt:
+                logger.info("Worker received stop signal")
+
         try:
             for _ in range(workers):
-                pid = os.fork()
-                if pid == 0:  # Proceso hijo
-                    loop = asyncio.get_event_loop()
-                    loop.run_until_complete(self._run())
-                    os._exit(0)
-                else:  # Proceso padre
-                    processes.append(pid)
+                p = Process(target=start_worker)
+                p.start()
+                processes.append(p)
 
-            for pid in processes:
-                os.waitpid(pid, 0)
+            for p in processes:
+                p.join()
         except KeyboardInterrupt:
             logger.info("Server stopped by user")
         finally:
+            for p in processes:
+                p.terminate()
             logger.info("Server stopped")
+
+
+def handle_exit(signal, frame):
+    logger.info("Shutting down server...")
+    os._exit(0)
+
+
+signal.signal(signal.SIGINT, handle_exit)
+signal.signal(signal.SIGTERM, handle_exit)
