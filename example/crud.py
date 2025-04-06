@@ -103,22 +103,23 @@ class Database:
             return cursor.rowcount > 0
 
 
-def db_middleware(headers, endpoint, *args, **kwargs):
-    db = Database()
-    return endpoint(headers=headers, db=db, *args, **kwargs)
-
-
 class UserEndpoint(Endpoint):
     path: str = "/users"
 
-    @Endpoint.with_middleware(db_middleware)
-    def get(self, headers, db) -> {200: UserList}:
+    @Endpoint.MIDDLEWARE()
+    def db_middleware(self, endpoint, headers, *args, **kwargs):
+        logger.info("db_middleware: Before to call the endpoint")
+        db = Database()
+        return endpoint(headers=headers, db=db, *args, **kwargs)
+
+    @Endpoint.GET()
+    def get(self, headers, db: Database, *args, **kwargs) -> {200: UserList}:
         users = db.get_users()
         return 200, {"users": users}
 
-    @Endpoint.with_middleware(db_middleware)
+    @Endpoint.GET()
     def get_with_params(
-        self, db, user_id: PathParam[str], headers
+        self, db, user_id: PathParam[str], headers, *args, **kwargs
     ) -> {200: UserOutput, 404: Message}:
         users = db.get_user(user_id)
 
@@ -127,14 +128,14 @@ class UserEndpoint(Endpoint):
 
         return 200, users
 
-    @Endpoint.with_middleware(db_middleware)
-    def post(self, user: UserInput, headers, db) -> {201: UserOutput}:
+    @Endpoint.POST()
+    def post(self, user: UserInput, headers, db, *args, **kwargs) -> {201: UserOutput}:
         new_user = db.add_user(user)
         return 201, new_user
 
-    @Endpoint.with_middleware(db_middleware)
+    @Endpoint.PUT()
     def put(
-        self, db, user_id: PathParam[str], user: UserInput, headers
+        self, db, user_id: PathParam[str], user: UserInput, headers, *args, **kwargs
     ) -> {200: UserOutput, 404: Message}:
         updated_user = db.update_user(user_id, user)
 
@@ -143,9 +144,9 @@ class UserEndpoint(Endpoint):
 
         return 200, updated_user
 
-    @Endpoint.with_middleware(db_middleware)
+    @Endpoint.DELETE()
     def delete(
-        self, db, user_id: PathParam[str], headers
+        self, db, user_id: PathParam[str], headers, *args, **kwargs
     ) -> {200: Message, 404: Message}:
         if db.delete_user(user_id):
             return 200, {"message": "User deleted"}
@@ -156,4 +157,4 @@ class UserEndpoint(Endpoint):
 if __name__ == "__main__":
     server = Server()
     server.include_endpoint_class(UserEndpoint)
-    server.run()
+    server.run(workers=1)
