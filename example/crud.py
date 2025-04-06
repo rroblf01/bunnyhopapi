@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from bunnyhopapi.server import Server
+from bunnyhopapi.server import Server, Router
 from bunnyhopapi.models import Endpoint, PathParam
 import sqlite3
 from contextlib import contextmanager
@@ -154,7 +154,17 @@ class UserEndpoint(Endpoint):
             return 404, {"message": "User not found"}
 
 
+def auth_middleware(headers, endpoint, *args, **kwargs):
+    logger.info("auth_middleware: Before to call the endpoint")
+    if "Authorization" not in headers:
+        return 401, {"message": "Unauthorized"}
+    logger.info("auth_middleware: After to call the endpoint")
+    return endpoint(headers=headers, *args, **kwargs)
+
+
 if __name__ == "__main__":
     server = Server()
-    server.include_endpoint_class(UserEndpoint)
+    auth_router = Router(middleware=auth_middleware)
+    auth_router.include_endpoint_class(UserEndpoint)
+    server.include_router(auth_router)
     server.run(workers=1)

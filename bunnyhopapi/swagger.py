@@ -26,6 +26,8 @@ SWAGGER_JSON["components"]["securitySchemes"] = {
     "Authorization": {"type": "apiKey", "name": "Authorization", "in": "header"}
 }
 
+SWAGGER_JSON["security"] = [{"Authorization": []}]
+
 
 class SwaggerGenerator:
     @staticmethod
