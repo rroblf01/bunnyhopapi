@@ -3,7 +3,6 @@ from typing import AsyncGenerator, TypeVar, Generic, Type, Coroutine, get_origin
 import re
 from functools import partial
 from dataclasses import dataclass, field
-from . import logger
 
 T = TypeVar("T")
 

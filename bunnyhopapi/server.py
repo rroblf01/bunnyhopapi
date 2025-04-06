@@ -55,17 +55,6 @@ class Server(ServerConfig, RouterBase):
             logger.error(f"Provided path is not a directory: {folder_path}")
             return
 
-        def static_file_handler(file_path: str):
-            try:
-                with open(file_path, "rb") as file:
-                    content = file.read()
-                return (200, content)
-            except FileNotFoundError:
-                return 404, "File not found"
-            except Exception as e:
-                logger.error(f"Error serving static file {file_path}: {e}")
-                return 500, "Internal server error"
-
         for root, _, files in os.walk(folder_path):
             logger.debug(f"Walking through: {root}")
             for file_name in files:
