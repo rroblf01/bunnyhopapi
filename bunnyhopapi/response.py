@@ -79,7 +79,7 @@ class ResponseHandler:
     def _build_response(
         self, content_type: str, status_code: int, response_data: bytes
     ):
-        content_length = len(response_data)
+        content_length = len(response_data) if response_data else 0
 
         return (
             (
@@ -89,7 +89,7 @@ class ResponseHandler:
             )
             + self._get_cors_headers()
             + b"Connection: close\r\n\r\n"
-            + response_data
+            + (response_data if response_data else b"")
         )
 
     def prepare_options_response(self):
