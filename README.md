@@ -158,9 +158,9 @@ pip install bunnyhopapi
 
 ### 6. Example Project
 
-Check the [`example/crud.py`](example/crud.py) file for an example of how to generate a CRUD using BunnyHopApi.
+Check the [`example/crud.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/example/crud.py) file for an example of how to generate a CRUD using BunnyHopApi.
 or
-Check the [`example/main.py`](example/main.py) file for a complete example of how to use BunnyHopApi.
+Check the [`example/main.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/example/main.py) file for a complete example of how to use BunnyHopApi.
 
 ### 7. License
 
