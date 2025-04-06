@@ -20,6 +20,12 @@ TYPE_MAPPING = {
     "bool": "boolean",
 }
 
+SWAGGER_JSON["components"] = SWAGGER_JSON.get("components", {})
+SWAGGER_JSON["components"]["schemas"] = SWAGGER_JSON["components"].get("schemas", {})
+SWAGGER_JSON["components"]["securitySchemes"] = {
+    "Authorization": {"type": "apiKey", "name": "Authorization", "in": "header"}
+}
+
 
 class SwaggerGenerator:
     @staticmethod

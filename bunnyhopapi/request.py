@@ -64,7 +64,7 @@ class RequestParser:
                     continue
                 colon_pos = line.find(":")
                 if colon_pos > 0:
-                    key = line[:colon_pos].strip().lower()
+                    key = line[:colon_pos].strip()
                     value = line[colon_pos + 1 :].strip()
                     headers[key] = value
 
