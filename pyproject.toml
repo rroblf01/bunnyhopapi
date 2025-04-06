@@ -1,6 +1,6 @@
 [project]
 name = "bunnyhopapi"
-version = "1.2.2"
+version = "1.3.2"
 description = "BunnyHopApi is a lightweight and fast web framework designed to handle modern web development needs."
 readme = "README.md"
 requires-python = ">=3.10"
