@@ -31,21 +31,74 @@ class QueryParam(Generic[T]):
             raise ValueError(f"Invalid value for type {self.param_type}: {value}")
 
 
-class Endpoint:
+class BaseEndpoint:
+    @classmethod
+    def MIDDLEWARE(cls):
+        def decorator(func):
+            cls.middleware = func
+            return func
+
+        return decorator
+
+    @staticmethod
+    def __generic_endpoint_method(
+        method_name: str,
+        middleware=None,
+        content_type=None,
+    ):
+        def decorator(func):
+            setattr(func, "__http_method__", method_name)
+            setattr(func, "__middleware__", middleware)
+            setattr(func, "__content_type__", content_type)
+
+            return func
+
+        return decorator
+
+    @staticmethod
+    def GET(middleware=None, content_type=None):
+        return BaseEndpoint.__generic_endpoint_method(
+            "GET", middleware=middleware, content_type=content_type
+        )
+
+    @staticmethod
+    def POST(middleware=None, content_type=None):
+        return BaseEndpoint.__generic_endpoint_method(
+            "POST", middleware=middleware, content_type=content_type
+        )
+
+    @staticmethod
+    def PUT(middleware=None, content_type=None):
+        return BaseEndpoint.__generic_endpoint_method(
+            "PUT", middleware=middleware, content_type=content_type
+        )
+
+    @staticmethod
+    def DELETE(middleware=None, content_type=None):
+        return BaseEndpoint.__generic_endpoint_method(
+            "DELETE", middleware=middleware, content_type=content_type
+        )
+
+    @staticmethod
+    def PATCH(middleware=None, content_type=None):
+        return BaseEndpoint.__generic_endpoint_method(
+            "PATCH", middleware=middleware, content_type=content_type
+        )
+
+
+class Endpoint(BaseEndpoint):
     path: str = ""
+    middleware: Coroutine = None
 
     def get_routes(self):
-        sufix = "_WITH_PARAMS"
-        http_methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
-        http_methods_with_params = {f"{method}{sufix}" for method in http_methods}
-        all_http_methods = http_methods.union(http_methods_with_params)
         routes = {}
 
         for method_name in dir(self):
-            if method_name.upper() in all_http_methods:
-                method = getattr(self, method_name)
-                if callable(method):
-                    annotations = getattr(method, "__annotations__", {})
+            end_point = getattr(self, method_name)
+            if callable(end_point):
+                http_method = getattr(end_point, "__http_method__", None)
+                if http_method:
+                    annotations = getattr(end_point, "__annotations__", {})
                     if annotations:
                         param_names = "/".join(
                             f"<{name}>"
@@ -60,17 +113,30 @@ class Endpoint:
                     else:
                         route_path = self.path
 
-                    middleware = getattr(method, "__middleware__", None)
+                    method_middleware = getattr(end_point, "__middleware__", None)
+
+                    final_middleware = None
+
+                    if self.middleware and method_middleware:
+                        final_middleware = partial(
+                            self.middleware,
+                            endpoint=partial(method_middleware, endpoint=end_point),
+                        )
+                    elif self.middleware:
+                        final_middleware = partial(self.middleware, endpoint=end_point)
+                    elif method_middleware:
+                        final_middleware = partial(
+                            method_middleware, endpoint=end_point
+                        )
+
                     if route_path not in routes:
                         routes[route_path] = {}
 
-                    http_method = method_name.upper().replace(sufix, "")
                     routes[route_path][http_method] = {
-                        "handler": method,
-                        "content_type": getattr(
-                            method, "__content_type__", RouterBase.CONTENT_TYPE_JSON
-                        ),
-                        "middleware": middleware,
+                        "handler": end_point,
+                        "content_type": getattr(end_point, "__content_type__")
+                        or RouterBase.CONTENT_TYPE_JSON,
+                        "middleware": final_middleware,
                     }
         return routes
 
@@ -99,22 +165,6 @@ class Endpoint:
                     )
 
         return routes
-
-    @staticmethod
-    def with_middleware(middleware):
-        def decorator(func):
-            setattr(func, "__middleware__", middleware)
-            return func
-
-        return decorator
-
-    @staticmethod
-    def with_content_type(content_type):
-        def decorator(func):
-            setattr(func, "__content_type__", content_type)
-            return func
-
-        return decorator
 
 
 @dataclass(frozen=True)
