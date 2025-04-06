@@ -1,5 +1,5 @@
 import inspect
-from typing import AsyncGenerator, TypeVar, Generic, Type, Dict, Coroutine, get_origin
+from typing import AsyncGenerator, TypeVar, Generic, Type, Coroutine, get_origin
 import re
 from functools import partial
 from dataclasses import dataclass, field
@@ -176,10 +176,10 @@ class ServerConfig:
 
 @dataclass(frozen=True)
 class RouterBase:
-    routes: Dict = field(default_factory=dict)
-    routes_with_params: Dict[str, re.Pattern] = field(default_factory=dict)
+    routes: dict = field(default_factory=dict)
+    routes_with_params: dict[str, re.Pattern] = field(default_factory=dict)
     middleware: Coroutine = field(default=None)
-    websocket_handlers: Dict[str, Coroutine] = field(default_factory=dict)
+    websocket_handlers: dict[str, Coroutine] = field(default_factory=dict)
     prefix: str = field(default_factory=str)
 
     GET = "GET"

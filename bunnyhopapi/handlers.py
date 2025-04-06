@@ -1,7 +1,7 @@
 import json
 import inspect
 from . import logger
-from typing import Dict, Optional, get_type_hints, get_origin
+from typing import get_type_hints, get_origin
 import asyncio
 from pydantic import BaseModel, ValidationError
 from bunnyhopapi.models import PathParam, QueryParam
@@ -9,7 +9,7 @@ from .models import RouterBase
 
 
 class RouteHandler:
-    def __init__(self, routes: Dict, routes_with_params: Dict):
+    def __init__(self, routes: dict, routes_with_params: dict):
         self.routes = routes
         self.routes_with_params = routes_with_params
 
@@ -28,9 +28,9 @@ class RouteHandler:
         self,
         path: str,
         method: str,
-        body: Optional[str] = None,
-        headers: Optional[Dict] = None,
-        query_params: Optional[Dict] = None,
+        body: str | None = None,
+        headers: dict | None = None,
+        query_params: dict | None = None,
     ):
         route_info = self._find_route(path, method)
         if not route_info:
@@ -62,12 +62,12 @@ class RouteHandler:
 
     async def _process_handler(
         self,
-        route_info: Dict,
+        route_info: dict,
         path: str,
         method: str,
-        body: Optional[str],
-        headers: Optional[Dict] = None,
-        query_params: Optional[Dict] = None,
+        body: str = None,
+        headers: dict = None,
+        query_params: dict = None,
     ):
         handler = route_info["handler"]
         content_type = route_info["content_type"]
@@ -148,7 +148,7 @@ class RouteHandler:
                 "response_data": {"error": "Internal server error", "message": str(e)},
             }
 
-    def _validate_params(self, params: Dict, type_hints: Dict, query_params: Dict):
+    def _validate_params(self, params: dict, type_hints: dict, query_params: dict):
         validated_params = {}
         combined_params = {**params, **query_params}
 
@@ -179,7 +179,7 @@ class RouteHandler:
 
         return validated_params
 
-    def _validate_body(self, body: str, type_hints: Dict):
+    def _validate_body(self, body: str, type_hints: dict):
         try:
             body_data = json.loads(body)
         except json.JSONDecodeError:

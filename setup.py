@@ -10,7 +10,7 @@ setup(
     author_email="ricardo.r.f@hotmail.com",
     url="https://github.com/rroblf01/bunnyhopapi",
     packages=find_packages(),
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=[
         "pydantic==2.11.0",
     ],

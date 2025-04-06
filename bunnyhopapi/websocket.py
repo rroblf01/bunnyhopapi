@@ -3,13 +3,13 @@ import hashlib
 import base64
 import struct
 import uuid
-from typing import Callable, Dict
+from typing import Callable
 import inspect
 from . import logger
 
 
 class WebSocketHandler:
-    def __init__(self, websocket_handlers: Dict[str, Callable]):
+    def __init__(self, websocket_handlers: dict[str, Callable]):
         self.websocket_handlers = websocket_handlers
 
     async def _read_websocket_frame(self, reader):

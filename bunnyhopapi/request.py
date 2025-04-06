@@ -1,9 +1,5 @@
-from typing import Dict
-from urllib.parse import urlparse, parse_qs
-
-
 class RequestParser:
-    def __init__(self, routes: Dict, routes_with_params: Dict):
+    def __init__(self, routes: dict, routes_with_params: dict):
         self.routes = routes
         self.routes_with_params = routes_with_params
 

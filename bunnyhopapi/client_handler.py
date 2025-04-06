@@ -1,4 +1,3 @@
-from typing import Optional, Dict
 import inspect
 from . import logger
 from .request import RequestParser
@@ -11,9 +10,9 @@ from .models import RouterBase
 class ClientHandler:
     def __init__(
         self,
-        routes: Dict,
-        routes_with_params: Dict,
-        websocket_handlers: Dict,
+        routes: dict,
+        routes_with_params: dict,
+        websocket_handlers: dict,
         cors: bool = False,
     ):
         self.request_parser = RequestParser(routes, routes_with_params)
@@ -51,7 +50,7 @@ class ClientHandler:
         )
         await self._send_response(writer, response)
 
-    async def _read_request(self, reader) -> Optional[bytes]:
+    async def _read_request(self, reader) -> bytes | None:
         try:
             request_data = b""
             while True:
