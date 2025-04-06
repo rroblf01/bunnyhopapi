@@ -6,7 +6,7 @@ BunnyHopApi is a lightweight and fast web framework designed to handle modern we
 - **SSE (Server-Sent Events)**: Support for server-sent events.
 - **WebSockets**: Real-time bidirectional communication.
 - **Middlewares**: 
-  - At the server level.
+  - At the global level.
   - At the route level.
   - At the endpoint level.
 - **CORS**: Simple configuration to enable CORS.
@@ -27,6 +27,7 @@ BunnyHopApi allows handling standard HTTP requests, SSE for real-time updates, a
 class HealthEndpoint(Endpoint):
     path = "/health"
 
+    @Endpoint.GET()
     def get(self, headers):
         return 200, {"message": "GET /health"}
 ```
@@ -36,7 +37,7 @@ class HealthEndpoint(Endpoint):
 class SseEndpoint(Endpoint):
     path = "/sse/events"
 
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_SSE)
+    @Endpoint.GET(content_type=Router.CONTENT_TYPE_SSE)
     async def get(self, headers) -> {200: str}:
         events = ["start", "progress", "complete"]
 
@@ -74,43 +75,71 @@ Define middlewares at different levels:
 - **Route-specific**: Applied to a specific set of endpoints.
 - **Endpoint-specific**: Applied to an individual endpoint.
 
-#### Example: Middleware
+#### Example: Global Middleware
 ```python
 async def global_middleware(endpoint, headers, **kwargs):
     logger.info("global_middleware: Before calling the endpoint")
-    response = await endpoint(headers=headers, **kwargs)
+    result = endpoint(headers=headers, **kwargs)
+    response = await result if asyncio.iscoroutine(result) else result
     logger.info("global_middleware: After calling the endpoint")
     return response
 ```
 
-### 3. Type Validation
-BunnyHopApi provides automatic type validation for query parameters, path parameters, and request bodies using Pydantic models.
-
-#### Example: Query Parameters
+#### Example: Database-Specific Middleware
 ```python
 class UserEndpoint(Endpoint):
-    path = "/user"
+    path: str = "/users"
 
-    def get(
-        self, headers, age: QueryParam[int], name: QueryParam[str] = "Alice"
-    ) -> {200: MessageModel}:
-        return 200, {"message": f"GET /user/ pathparams: age {age}, name {name}"}
+    @Endpoint.MIDDLEWARE()
+    def db_middleware(self, endpoint, headers, *args, **kwargs):
+        logger.info("db_middleware: Before calling the endpoint")
+        db = Database()
+        return endpoint(headers=headers, db=db, *args, **kwargs)
 ```
 
-#### Example: Path Parameters
-```python
-    def get_with_params(self, user_id: PathParam[int], headers) -> {200: MessageModel}:
-        return 200, {"message": f"GET /user/{user_id}"}
-```
+### 3. CRUD with SQLite
+BunnyHopApi makes it easy to implement CRUD operations with support for databases like SQLite.
 
-#### Example: Request Body
+#### Example: CRUD Operations
 ```python
-class BodyModel(BaseModel):
-    name: str
-    age: int
+class UserEndpoint(Endpoint):
+    path: str = "/users"
 
-    def post(self, headers, body: BodyModel) -> {201: MessageModel}:
-        return 201, {"message": f"POST /user/ - {body.name} - {body.age}"}
+    @Endpoint.MIDDLEWARE()
+    def db_middleware(self, endpoint, headers, *args, **kwargs):
+        logger.info("db_middleware: Before calling the endpoint")
+        db = Database()
+        return endpoint(headers=headers, db=db, *args, **kwargs)
+
+    @Endpoint.GET()
+    def get(self, headers, db: Database, *args, **kwargs) -> {200: UserList}:
+        users = db.get_users()
+        return 200, {"users": users}
+
+    @Endpoint.POST()
+    def post(self, user: UserInput, headers, db, *args, **kwargs) -> {201: UserOutput}:
+        new_user = db.add_user(user)
+        return 201, new_user
+
+    @Endpoint.PUT()
+    def put(
+        self, db, user_id: PathParam[str], user: UserInput, headers, *args, **kwargs
+    ) -> {200: UserOutput, 404: Message}:
+        updated_user = db.update_user(user_id, user)
+
+        if updated_user is None:
+            return 404, {"message": "User not found"}
+
+        return 200, updated_user
+
+    @Endpoint.DELETE()
+    def delete(
+        self, db, user_id: PathParam[str], headers, *args, **kwargs
+    ) -> {200: Message, 404: Message}:
+        if db.delete_user(user_id):
+            return 200, {"message": "User deleted"}
+        else:
+            return 404, {"message": "User not found"}
 ```
 
 ### 4. Swagger Documentation
@@ -119,75 +148,7 @@ BunnyHopApi automatically generates Swagger documentation for all endpoints, mak
 #### Example: Access Swagger
 Once the server is running, visit `/docs` in your browser to view the Swagger UI.
 
-### 5. Web Page Rendering
-- **Static Pages**: Serve HTML files directly.
-- **Dynamic Pages**: Use Jinja2 for dynamic template rendering.
-
-#### Example: Static Page
-```python
-class SseTemplateEndpoint(Endpoint):
-    path = "/sse"
-
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
-    async def get(self, headers):
-        return await serve_static_file("example/templates/static_html/sse_index.html")
-```
-
-#### Example: Dynamic Page
-```python
-class JinjaTemplateEndpoint(Endpoint):
-    path = "/"
-
-    def __init__(self):
-        super().__init__()
-        self.template_env = create_template_env("example/templates/jinja/")
-
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
-    async def get(self, headers):
-        return await render_jinja_template("index.html", self.template_env)
-```
-
-### 6. Performance
-BunnyHopApi is extremely fast. Here's a benchmark that demonstrates its performance:
-
-```bash
-wrk -t12 -c400 -d30s --timeout 1m http://127.0.0.1:8000/health
-```
-
-**Results:**
-```
-Running 30s test @ http://127.0.0.1:8000/health
-  12 threads and 400 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     6.68ms    7.03ms 244.27ms   89.09%
-    Req/Sec     3.48k     1.14k    9.78k    62.59%
-  1243109 requests in 30.10s, 283.34MB read
-Requests/sec:  41302.60
-Transfer/sec:      9.41MB
-```
-
-### 7. Serving Static Content
-BunnyHopApi allows marking an entire folder as static to serve all its content directly.
-
-#### Example: Static Folder Configuration
-```python
-import os
-from bunnyhopapi.server import Server
-
-def main():
-    server = Server(cors=True, port=8000)
-
-    # Mark the "static" folder as static
-    static_folder = os.path.join(os.path.dirname(__file__), "static")
-    server.include_static_folder(static_folder)
-
-    server.run()
-```
-
-In this example, all files inside the `static` folder will be accessible directly from the browser. For example:
-- A file `static/style.css` will be accessible at `http://localhost:8000/static/style.css`.
-
-## Installation
+### 5. Installation
 
 You can install BunnyHopApi directly from PyPI:
 
@@ -195,37 +156,12 @@ You can install BunnyHopApi directly from PyPI:
 pip install bunnyhopapi
 ```
 
-## Usage
+### 6. Example Project
 
-1. Create a new Python file and import BunnyHopApi:
-   ```python
-   from bunnyhopapi.server import Server
-   from bunnyhopapi.models import Endpoint
-   ```
-
-2. Define your endpoints and middlewares.
-
-    ```python
-    class HealthEndpoint(Endpoint):
-        path = "/health"
-
-        def get(self, headers):
-            return 200, {"message": "GET /health"}
-    ```
-
-3. Start the server:
-   ```python
-   server = Server(cors=True, middleware=global_middleware, port=8000)
-   server.include_endpoint_class(HealthEndpoint)
-   server.run(workers=4)  # You can specify the number of workers (default: os.cpu_count())
-   ```
-
-   By default, the number of workers is set to the number of CPU cores available (`os.cpu_count()`), but you can customize it by passing the `workers` argument to the `run` method.
-
-## Example Project
-
+Check the [`example/crud.py`](example/crud.py) file for an example of how to generate a CRUD using BunnyHopApi.
+or
 Check the [`example/main.py`](example/main.py) file for a complete example of how to use BunnyHopApi.
 
-## License
+### 7. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

@@ -27,24 +27,25 @@ class HealthEndpoint(Endpoint):
         return 200, {"message": "GET /health"}
 
 
-async def endpoint_middleware(endpoint, headers, **kwargs):
-    logger.info("endpoint_middleware: Before to call the endpoint")
-    result = endpoint(headers=headers, **kwargs)
-    response = await result if asyncio.iscoroutine(result) else result
-    logger.info("endpoint_middleware: After to call the endpoint")
-    return response
-
-
 class UserEndpoint(Endpoint):
     path = "/user"
 
-    @Endpoint.with_middleware(endpoint_middleware)
+    @Endpoint.MIDDLEWARE()
+    async def endpoint_middleware(self, endpoint, headers, **kwargs):
+        logger.info("endpoint_middleware: Before to call the endpoint")
+        result = endpoint(headers=headers, **kwargs)
+        response = await result if asyncio.iscoroutine(result) else result
+        logger.info("endpoint_middleware: After to call the endpoint")
+        return response
+
+    @Endpoint.GET()
     def get(
         self, headers, age: QueryParam[int] = 1, name: QueryParam[str] = "Alice"
     ) -> {200: MessageModel}:
         logger.info("get /user/ - QueryParam")
         return 200, {"message": f"GET /user/ pathparams: age {age}, name {name}"}
 
+    @Endpoint.GET()
     def get_with_params(self, user_id: PathParam[int], headers) -> {200: MessageModel}:
         return 200, {"message": f"GET /user/{user_id}"}
 
@@ -55,7 +56,7 @@ class UserEndpoint(Endpoint):
 class SseEndpoint(Endpoint):
     path = "/sse/events"
 
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_SSE)
+    @Endpoint.GET(content_type=Router.CONTENT_TYPE_SSE)
     async def get(self, headers) -> {200: str}:
         events = ["start", "progress", "complete"]
         for event in events:
@@ -67,7 +68,7 @@ class SseEndpoint(Endpoint):
 class SseTemplateEndpoint(Endpoint):
     path = "/sse"
 
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
+    @Endpoint.GET(content_type=Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
         return await serve_static_file("example/templates/static_html/sse_index.html")
 
@@ -94,7 +95,7 @@ class WSEndpoint(Endpoint):
 class WSTemplateEndpoint(Endpoint):
     path = "/ws"
 
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
+    @Endpoint.GET(content_type=Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
         return await serve_static_file("example/templates/static_html/ws_index.html")
 
@@ -106,7 +107,7 @@ class JinjaTemplateEndpoint(Endpoint):
         super().__init__()
         self.template_env = create_template_env("example/templates/jinja/")
 
-    @Endpoint.with_content_type(Router.CONTENT_TYPE_HTML)
+    @Endpoint.GET(content_type=Router.CONTENT_TYPE_HTML)
     async def get(self, headers):
         return await render_jinja_template("index.html", self.template_env)
 
