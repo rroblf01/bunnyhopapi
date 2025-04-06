@@ -153,6 +153,10 @@ class SwaggerGenerator:
                         response_schema.update(
                             SwaggerGenerator._add_response_model(status_code, model)
                         )
+                    elif model is None:
+                        response_schema[status_code] = {
+                            "description": f"Response with status {status_code}"
+                        }
             elif inspect.isclass(return_type) and issubclass(return_type, BaseModel):
                 response_schema.update(
                     SwaggerGenerator._add_response_model(200, return_type)
