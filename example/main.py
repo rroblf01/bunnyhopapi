@@ -30,7 +30,7 @@ class HealthEndpoint(Endpoint):
 class UserEndpoint(Endpoint):
     path = "/user"
 
-    @Endpoint.MIDDLEWARE
+    @Endpoint.MIDDLEWARE()
     async def endpoint_middleware(self, endpoint, headers, **kwargs):
         logger.info("endpoint_middleware: Before to call the endpoint")
         result = endpoint(headers=headers, **kwargs)
@@ -75,6 +75,12 @@ class SseTemplateEndpoint(Endpoint):
 
 class WSEndpoint(Endpoint):
     path = "/ws/chat"
+
+    @Endpoint.MIDDLEWARE()
+    async def middleware(self, endpoint, headers, **kwargs):
+        logger.info("middleware: Before to call the endpoint")
+        yield await endpoint(headers=headers, **kwargs)
+        logger.info("middleware: After to call the endpoint")
 
     async def connection(self, headers):
         logger.info("Client connected")

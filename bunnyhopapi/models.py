@@ -33,13 +33,14 @@ class QueryParam(Generic[T]):
 class BaseEndpoint:
     middleware = None
 
-    @classmethod
-    def MIDDLEWARE(cls, func):
-        def wrapper(*args, **kwargs):
-            cls.middleware = func
-            return func(*args, **kwargs)
+    @staticmethod
+    def MIDDLEWARE():
+        def decorator(func):
+            setattr(func, "__class__middleware__", True)
 
-        return wrapper
+            return func
+
+        return decorator
 
     @staticmethod
     def __generic_endpoint_method(
@@ -93,6 +94,11 @@ class Endpoint(BaseEndpoint):
 
     def get_routes(self):
         routes = {}
+        for method_name in dir(self):
+            method = getattr(self, method_name)
+            if callable(method) and getattr(method, "__class__middleware__", None):
+                self.middleware = method
+                break
 
         for method_name in dir(self):
             end_point = getattr(self, method_name)
@@ -149,11 +155,26 @@ class Endpoint(BaseEndpoint):
         for method_name in dir(self):
             if method_name == "ws":
                 method = getattr(self, method_name)
+
+                method_middleware = getattr(method, "__middleware__", None)
+
+                final_middleware = None
+
+                if self.middleware and method_middleware:
+                    final_middleware = partial(
+                        self.middleware,
+                        endpoint=partial(method_middleware, endpoint=method),
+                    )
+                elif self.middleware:
+                    final_middleware = partial(self.middleware, endpoint=method)
+                elif method_middleware:
+                    final_middleware = partial(method_middleware, endpoint=method)
+
                 if callable(method):
                     routes[route_path].update(
                         {
                             "handler": method,
-                            "middleware": getattr(method, "__middleware__", None),
+                            "middleware": final_middleware,
                         }
                     )
             elif method_name in start_end_methods:
