@@ -50,7 +50,6 @@ class WebSocketHandler:
         await writer.drain()
 
     async def handle_websocket(self, reader, writer, path, headers):
-        logger.info(f"WebSocket connection established for {path}")
         if path not in self.websocket_handlers:
             logger.info(f"No WebSocket handler found for {path}")
             return

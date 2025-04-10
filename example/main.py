@@ -78,8 +78,6 @@ class WSEndpoint(Endpoint):
 
     async def connection(self, headers):
         logger.info("Client connected")
-        logger.info(f"Headers: {headers}")
-
         return True
 
     async def disconnect(self, connection_id, headers):
