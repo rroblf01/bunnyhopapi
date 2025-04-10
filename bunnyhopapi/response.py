@@ -80,10 +80,15 @@ class ResponseHandler:
         self, content_type: str, status_code: int, response_data: bytes
     ):
         content_length = len(response_data) if response_data else 0
+        status_text = "OK" if status_code == 200 else ""
 
         return (
             (
-                b"HTTP/1.1 " + str(status_code).encode("utf-8") + b"\r\n"
+                b"HTTP/1.1 "
+                + str(status_code).encode("utf-8")
+                + b" "
+                + status_text.encode("utf-8")
+                + b"\r\n"
                 b"Content-Type: " + content_type.encode("utf-8") + b"\r\n"
                 b"Content-Length: " + str(content_length).encode("utf-8") + b"\r\n"
             )
