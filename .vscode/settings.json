@@ -4,6 +4,7 @@
     },
     "python.testing.pytestArgs": [
         "--cov=bunnyhopapi",
+        "--cov-report=term-missing",
         "tests/"
     ],
     "python.testing.unittestEnabled": false,

@@ -15,9 +15,11 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.13.3'
     - name: Install dependencies
       run: |
+        python -m pip venv .venv
+        . .venv/bin/activate
         python -m pip install .[dev]
     - name: Run tests
-      run: pytest --cov=bunnyhopapi tests/
+      run: pytest --cov=/usr/local/lib/python3.13/site-packages/bunnyhopapi --cov-report=term-missing tests/

@@ -1,4 +1,4 @@
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 from . import logger
 
 
@@ -12,9 +12,11 @@ async def render_jinja_template(
     try:
         template = template_env.get_template(template_name)
         return 200, template.render(**context)
-    except FileNotFoundError:
+    except TemplateNotFound:
         return 404, "Template not found"
     except Exception as e:
+        logger.info(f"Error rendering template {template_name}: {e}")
+        logger.info(f"error type: {type(e)}")
         return 500, f"Internal server error: {e}"
 
 
