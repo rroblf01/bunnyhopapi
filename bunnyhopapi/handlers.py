@@ -6,12 +6,13 @@ import asyncio
 from pydantic import BaseModel, ValidationError
 from bunnyhopapi.models import PathParam, QueryParam
 from .models import RouterBase
+from dataclasses import dataclass, field
 
 
+@dataclass
 class RouteHandler:
-    def __init__(self, routes: dict, routes_with_params: dict):
-        self.routes = routes
-        self.routes_with_params = routes_with_params
+    routes: dict = field(default_factory=dict)
+    routes_with_params: dict = field(default_factory=dict)
 
     def _extract_params(self, path: str, route_path: str):
         if route_path not in self.routes_with_params:
@@ -148,9 +149,9 @@ class RouteHandler:
                 "response_data": {"error": "Internal server error", "message": str(e)},
             }
 
-    def _validate_params(self, params: dict, type_hints: dict, query_params: dict):
+    def _validate_params(self, params: dict, type_hints: dict, query_params: dict = {}):
         validated_params = {}
-        combined_params = {**params, **query_params}
+        combined_params = {**params, **(query_params or {})}
 
         for param_name, param_value in combined_params.items():
             if param_name not in type_hints:
