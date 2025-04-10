@@ -30,7 +30,7 @@ class HealthEndpoint(Endpoint):
 class UserEndpoint(Endpoint):
     path = "/user"
 
-    @Endpoint.MIDDLEWARE()
+    @Endpoint.MIDDLEWARE
     async def endpoint_middleware(self, endpoint, headers, **kwargs):
         logger.info("endpoint_middleware: Before to call the endpoint")
         result = endpoint(headers=headers, **kwargs)
@@ -80,7 +80,7 @@ class WSEndpoint(Endpoint):
         logger.info("Client connected")
         logger.info(f"Headers: {headers}")
 
-        return False
+        return True
 
     async def disconnect(self, connection_id, headers):
         logger.info(f"Client {connection_id} disconnected")
@@ -129,9 +129,7 @@ async def global_middleware(endpoint, headers, **kwargs):
 
 
 def main():
-    server = Server(
-        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
-    )
+    server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
 
     static_folder = os.path.join(os.path.dirname(__file__), "static")
     server.include_static_folder(static_folder)

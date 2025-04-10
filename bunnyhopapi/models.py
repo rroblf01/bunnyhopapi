@@ -31,13 +31,15 @@ class QueryParam(Generic[T]):
 
 
 class BaseEndpoint:
-    @classmethod
-    def MIDDLEWARE(cls):
-        def decorator(func):
-            cls.middleware = func
-            return func
+    middleware = None
 
-        return decorator
+    @classmethod
+    def MIDDLEWARE(cls, func):
+        def wrapper(*args, **kwargs):
+            cls.middleware = func
+            return func(*args, **kwargs)
+
+        return wrapper
 
     @staticmethod
     def __generic_endpoint_method(
