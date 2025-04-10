@@ -156,19 +156,10 @@ class Endpoint(BaseEndpoint):
             if method_name == "ws":
                 method = getattr(self, method_name)
 
-                method_middleware = getattr(method, "__middleware__", None)
-
                 final_middleware = None
 
-                if self.middleware and method_middleware:
-                    final_middleware = partial(
-                        self.middleware,
-                        endpoint=partial(method_middleware, endpoint=method),
-                    )
-                elif self.middleware:
+                if self.middleware:
                     final_middleware = partial(self.middleware, endpoint=method)
-                elif method_middleware:
-                    final_middleware = partial(method_middleware, endpoint=method)
 
                 if callable(method):
                     routes[route_path].update(
@@ -251,6 +242,7 @@ class RouterBase:
                 handler = content.get("handler")
                 existing_middleware = content.get("middleware")
 
+                middleware = None
                 if self.middleware and existing_middleware:
                     middleware = partial(
                         self.middleware,
@@ -260,8 +252,6 @@ class RouterBase:
                     middleware = partial(self.middleware, endpoint=handler)
                 elif existing_middleware:
                     middleware = existing_middleware
-                else:
-                    middleware = None
 
                 self.routes[full_path][method] = {
                     "handler": handler,
@@ -290,6 +280,7 @@ class RouterBase:
                     full_path
                 )
 
+        final_middleware = None
         if middleware and self.middleware:
             final_middleware = partial(
                 self.middleware,
@@ -299,8 +290,6 @@ class RouterBase:
             final_middleware = partial(middleware, endpoint=handler)
         elif self.middleware:
             final_middleware = partial(self.middleware, endpoint=handler)
-        else:
-            final_middleware = handler
 
         self.routes[full_path][method] = {
             "handler": handler,
@@ -327,6 +316,9 @@ class RouterBase:
         method_middleware = (
             middleware if inspect.isasyncgenfunction(middleware) else None
         )
+
+        final_middleware = None
+
         if class_middleware and method_middleware:
             final_middleware = partial(
                 class_middleware,
@@ -337,8 +329,6 @@ class RouterBase:
 
         elif method_middleware:
             final_middleware = partial(method_middleware, endpoint=handler)
-        else:
-            final_middleware = None
 
         self.websocket_handlers[path] = {
             "handler": handler,

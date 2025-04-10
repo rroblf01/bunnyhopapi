@@ -77,7 +77,7 @@ class WSEndpoint(Endpoint):
     path = "/ws/chat"
 
     @Endpoint.MIDDLEWARE()
-    async def middleware(self, endpoint, headers, **kwargs):
+    async def class_middleware(self, endpoint, headers, **kwargs):
         logger.info("middleware: Before to call the endpoint")
         yield await endpoint(headers=headers, **kwargs)
         logger.info("middleware: After to call the endpoint")
@@ -133,7 +133,9 @@ async def global_middleware(endpoint, headers, **kwargs):
 
 
 def main():
-    server = Server(cors=True, middleware=None, port=int(os.getenv("PORT", "8000")))
+    server = Server(
+        cors=True, middleware=global_middleware, port=int(os.getenv("PORT", "8000"))
+    )
 
     static_folder = os.path.join(os.path.dirname(__file__), "static")
     server.include_static_folder(static_folder)
