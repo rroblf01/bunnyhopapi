@@ -85,15 +85,15 @@ class TestRouteHandler:
 
     def test_validate_params_param_not_in_type_hints(self, route_handler):
         type_hints = {"id": PathParam[int]}
-        params = {"name": "test"}  # 'name' no está en type_hints
+        params = {"name": "test"}
         validated = route_handler._validate_params(params, type_hints, {})
-        assert "name" not in validated  # No se valida porque no está en type_hints
+        assert "name" not in validated
 
     def test_validate_params_assign_param_value(self, route_handler):
         type_hints = {"id": PathParam[int], "name": str}
-        params = {"name": "test"}  # 'name' está en type_hints
+        params = {"name": "test"}
         validated = route_handler._validate_params(params, type_hints, {})
-        assert validated["name"] == "test"  # Se asigna directamente el valor
+        assert validated["name"] == "test"
 
     def test_validate_body_success(self, route_handler):
         class BodyModel(BaseModel):
