@@ -15,8 +15,6 @@ dependencies = [
 lint = [
     "ruff==0.11.4",
 ]
-
-[dependency-groups]
 dev = [
     "pytest==8.3.5",
     "pytest-asyncio>=0.26.0",
