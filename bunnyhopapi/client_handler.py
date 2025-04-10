@@ -23,6 +23,7 @@ class ClientHandler:
     async def handle_client(self, reader, writer):
         request_data = await self._read_request(reader)
         if request_data is None:
+            await self._send_error_response(writer, 400, "Invalid request")
             return
 
         (
