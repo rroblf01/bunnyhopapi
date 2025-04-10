@@ -2,7 +2,6 @@ import pytest
 from bunnyhopapi.models import PathParam, QueryParam, Endpoint, RouterBase
 import re
 import asyncio
-from unittest.mock import patch
 from bunnyhopapi import logger
 
 

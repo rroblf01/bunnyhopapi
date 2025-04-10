@@ -93,21 +93,25 @@ class Server(ServerConfig, RouterBase):
         async with server:
             await server.serve_forever()
 
+    def _start_worker(self):
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(self._run())
+            else:
+                asyncio.run(self._run())
+        except KeyboardInterrupt:
+            logger.info("Worker received stop signal")
+
     def run(self, workers: int = os.cpu_count() or 1):
         self.add_swagger()
 
         uvloop.install()
         processes = []
 
-        def start_worker():
-            try:
-                asyncio.run(self._run())
-            except KeyboardInterrupt:
-                logger.info("Worker received stop signal")
-
         try:
             for _ in range(workers):
-                p = Process(target=start_worker)
+                p = Process(target=self._start_worker)
                 p.start()
                 processes.append(p)
 
