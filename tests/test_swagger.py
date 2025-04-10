@@ -35,10 +35,8 @@ class TestSwaggerGenerator:
                 "handler": lambda: None,
             }
         }
-        SwaggerGenerator.generate_path_item("test", methods)  # Sin barra inicial
-        assert (
-            "/test" in SWAGGER_JSON["paths"]
-        )  # Se espera que se agregue la barra inicial
+        SwaggerGenerator.generate_path_item("test", methods)
+        assert "/test" in SWAGGER_JSON["paths"]
         assert "get" in SWAGGER_JSON["paths"]["/test"]
 
     def test_process_path_params(self, reset_swagger_json):
@@ -95,7 +93,6 @@ class TestSwaggerGenerator:
         assert "age" in schema["properties"]
 
     def test_process_body_params_without_components(self, reset_swagger_json):
-        # Elimina "components" de SWAGGER_JSON para simular el caso
         del SWAGGER_JSON["components"]
 
         class TestModel(BaseModel):
@@ -113,7 +110,6 @@ class TestSwaggerGenerator:
 
         SwaggerGenerator.generate_path_item("/test", methods)
 
-        # Verifica que "components" se haya creado correctamente
         assert "components" in SWAGGER_JSON
         assert "schemas" in SWAGGER_JSON["components"]
         assert "TestModel" in SWAGGER_JSON["components"]["schemas"]
@@ -139,7 +135,7 @@ class TestSwaggerGenerator:
     def test_generate_path_item_with_non_callable_handler(self, reset_swagger_json):
         methods = {
             "GET": {
-                "handler": "not_a_function",  # Handler no invocable
+                "handler": "not_a_function",
             }
         }
         with pytest.raises(TypeError, match="not_a_function is not a callable object."):

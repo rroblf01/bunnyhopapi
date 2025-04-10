@@ -22,16 +22,14 @@ class RequestParser:
 
             header_data = request_data[:header_end]
 
-            try:
-                headers_text = header_data.decode("latin-1")
-            except UnicodeDecodeError:
-                return None, None, None, None, None
+            headers_text = header_data.decode("latin-1")
 
             first_line_end = headers_text.find("\r\n")
             if first_line_end == -1:
-                return None, None, None, None, None
+                first_line = headers_text.split(" ", 2)
+            else:
+                first_line = headers_text[:first_line_end].split(" ", 2)
 
-            first_line = headers_text[:first_line_end].split(" ", 2)
             if len(first_line) < 2:
                 return None, None, None, None, None
 
@@ -54,27 +52,27 @@ class RequestParser:
                             query_params[key] = value.split(",")[0]
 
             headers = {}
-            header_lines = headers_text[first_line_end + 2 :].split("\r\n")
-            for line in header_lines:
-                if not line:
-                    continue
-                colon_pos = line.find(":")
-                if colon_pos > 0:
-                    key = line[:colon_pos].strip()
-                    value = line[colon_pos + 1 :].strip()
-                    headers[key] = value
+            if first_line_end != -1:
+                header_lines = headers_text[first_line_end + 2 :].split("\r\n")
+                for line in header_lines:
+                    colon_pos = line.find(":")
+                    if colon_pos > 0:
+                        key = line[:colon_pos].strip()
+                        value = line[colon_pos + 1 :].strip()
+                        headers[key] = value
 
             body = None
-            if "content-length" in headers:
+            if "Content-Length" in headers:
                 try:
-                    content_length = int(headers["content-length"])
+                    content_length = int(headers["Content-Length"])
                     body_start = header_end + 4
                     if content_length > 0 and (body_start + content_length) <= len(
                         request_data
                     ):
-                        if headers.get("content-type", "").startswith(
-                            "text/"
-                        ) or "application/json" in headers.get("content-type", ""):
+                        if (
+                            headers.get("Content-Type", "").startswith("text/")
+                            or headers.get("Content-Type", "") == "application/json"
+                        ):
                             body = request_data[
                                 body_start : body_start + content_length
                             ].decode("utf-8")
