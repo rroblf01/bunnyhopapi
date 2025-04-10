@@ -165,7 +165,6 @@ Check the [`example/main.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/
 ### 7. Benchmark
 With Bunnyhopapi python example/health.py
 ```bash
-(bunnyhopapi) [sheik@archlinux bunnyhopapi]$ docker exec -it 4b6138c8bf6c bash
 root@4b6138c8bf6c:/# wrk -t12 -c400 -d30s http://127.0.0.1:8000/health    
 Running 30s test @ http://127.0.0.1:8000/health
   12 threads and 400 connections
