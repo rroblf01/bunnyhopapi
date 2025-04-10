@@ -4,7 +4,7 @@ from bunnyhopapi.models import PathParam, QueryParam
 from pydantic import BaseModel
 
 
-class TestModel(BaseModel):
+class ExampleModel(BaseModel):
     name: str
     age: int
 
@@ -74,7 +74,7 @@ class TestSwaggerGenerator:
         assert not parameters[0]["required"]
 
     def test_process_body_params(self, reset_swagger_json):
-        def handler(body: TestModel):
+        def handler(body: ExampleModel):  # Actualización del nombre de la clase
             pass
 
         methods = {
@@ -85,8 +85,8 @@ class TestSwaggerGenerator:
         SwaggerGenerator.generate_path_item("/test", methods)
         request_body = SWAGGER_JSON["paths"]["/test"]["post"]["requestBody"]
         schema = request_body["content"]["application/json"]["schema"]
-        assert "TestModel" in SWAGGER_JSON["components"]["schemas"]
-        assert schema.get("title") == "TestModel"
+        assert "ExampleModel" in SWAGGER_JSON["components"]["schemas"]
+        assert schema.get("title") == "ExampleModel"
         assert schema.get("type") == "object"
         assert "properties" in schema
         assert "name" in schema["properties"]
@@ -95,11 +95,11 @@ class TestSwaggerGenerator:
     def test_process_body_params_without_components(self, reset_swagger_json):
         del SWAGGER_JSON["components"]
 
-        class TestModel(BaseModel):
+        class ExampleModel(BaseModel):  # Renombrado de TestModel a ExampleModel
             name: str
             age: int
 
-        def handler(body: TestModel):
+        def handler(body: ExampleModel):  # Actualización del nombre de la clase
             pass
 
         methods = {
@@ -112,10 +112,10 @@ class TestSwaggerGenerator:
 
         assert "components" in SWAGGER_JSON
         assert "schemas" in SWAGGER_JSON["components"]
-        assert "TestModel" in SWAGGER_JSON["components"]["schemas"]
+        assert "ExampleModel" in SWAGGER_JSON["components"]["schemas"]
 
     def test_process_response_types(self, reset_swagger_json):
-        def handler() -> {200: TestModel}:
+        def handler() -> {200: ExampleModel}:  # Actualización del nombre de la clase
             pass
 
         methods = {
@@ -128,9 +128,9 @@ class TestSwaggerGenerator:
         assert 200 in responses
         assert (
             responses[200]["content"]["application/json"]["schema"]["$ref"]
-            == "#/components/schemas/TestModel"
+            == "#/components/schemas/ExampleModel"
         )
-        assert "TestModel" in SWAGGER_JSON["components"]["schemas"]
+        assert "ExampleModel" in SWAGGER_JSON["components"]["schemas"]
 
     def test_generate_path_item_with_non_callable_handler(self, reset_swagger_json):
         methods = {
@@ -156,11 +156,11 @@ class TestSwaggerGenerator:
         assert responses[204]["description"] == "Response with status 204"
 
     def test_process_response_types_with_base_model(self, reset_swagger_json):
-        class TestModel(BaseModel):
+        class ExampleModel(BaseModel):  # Renombrado de TestModel a ExampleModel
             name: str
             age: int
 
-        def handler() -> TestModel:
+        def handler() -> ExampleModel:  # Actualización del nombre de la clase
             pass
 
         methods = {
@@ -173,28 +173,30 @@ class TestSwaggerGenerator:
         assert 200 in responses
         assert (
             responses[200]["content"]["application/json"]["schema"]["$ref"]
-            == "#/components/schemas/TestModel"
+            == "#/components/schemas/ExampleModel"
         )
-        assert "TestModel" in SWAGGER_JSON["components"]["schemas"]
+        assert "ExampleModel" in SWAGGER_JSON["components"]["schemas"]
 
     def test_add_response_model_without_components(self, reset_swagger_json):
         del SWAGGER_JSON["components"]
 
-        class TestModel(BaseModel):
+        class ExampleModel(BaseModel):  # Renombrado de TestModel a ExampleModel
             name: str
             age: int
 
-        response = SwaggerGenerator._add_response_model(200, TestModel)
+        response = SwaggerGenerator._add_response_model(
+            200, ExampleModel
+        )  # Actualización del nombre de la clase
 
         assert "components" in SWAGGER_JSON
         assert "schemas" in SWAGGER_JSON["components"]
-        assert "TestModel" in SWAGGER_JSON["components"]["schemas"]
+        assert "ExampleModel" in SWAGGER_JSON["components"]["schemas"]
 
         assert 200 in response
         assert response[200]["description"] == "Response with status 200"
         assert (
             response[200]["content"]["application/json"]["schema"]["$ref"]
-            == "#/components/schemas/TestModel"
+            == "#/components/schemas/ExampleModel"
         )
 
     def test_get_swagger_ui_html(self):

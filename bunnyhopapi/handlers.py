@@ -123,7 +123,9 @@ class RouteHandler:
                 response_model := return_type.get(status_code)
             ):
                 try:
-                    response_data = response_model.validate(response_data).model_dump()
+                    response_data = response_model.model_validate(
+                        response_data
+                    ).model_dump()
                 except ValidationError as e:
                     logger.error(f"Validation error: {e}", exc_info=True)
                     return {
