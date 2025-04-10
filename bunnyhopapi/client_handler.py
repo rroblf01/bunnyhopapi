@@ -41,7 +41,10 @@ class ClientHandler:
             await self._handle_options(writer)
             return
 
-        if headers.get("upgrade") == "websocket":
+        if (
+            headers.get("Connection", "").lower() == "upgrade"
+            and headers.get("Upgrade", "").lower() == "websocket"
+        ):
             await self.websocket_handler.handle_websocket(reader, writer, path, headers)
             return
 

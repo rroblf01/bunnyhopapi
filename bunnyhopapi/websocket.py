@@ -50,6 +50,7 @@ class WebSocketHandler:
         await writer.drain()
 
     async def handle_websocket(self, reader, writer, path, headers):
+        logger.info(f"WebSocket connection established for {path}")
         if path not in self.websocket_handlers:
             logger.info(f"No WebSocket handler found for {path}")
             return
@@ -60,7 +61,7 @@ class WebSocketHandler:
         connection = handler_info.get("connection")
         disconnect = handler_info.get("disconnect")
 
-        key = headers.get("sec-websocket-key")
+        key = headers.get("Sec-WebSocket-Key")
         if not key:
             logger.info("No Sec-WebSocket-Key found in headers")
             return
