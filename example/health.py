@@ -13,4 +13,4 @@ class HealthEndpoint(Endpoint):
 if __name__ == "__main__":
     server = Server()
     server.include_endpoint_class(HealthEndpoint)
-    server.run()
+    server.run(workers=1)

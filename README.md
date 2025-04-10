@@ -162,6 +162,39 @@ Check the [`example/crud.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/
 or
 Check the [`example/main.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/example/main.py) file for a complete example of how to use BunnyHopApi.
 
-### 7. License
+### 7. Benchmark
+
+With Bunnyhopapi python example/health.py
+(bunnyhopapi) [sheik@archlinux bunnyhopapi]$ docker exec -it 4b6138c8bf6c bash
+root@4b6138c8bf6c:/# wrk -t12 -c400 -d30s http://127.0.0.1:8000/health    
+Running 30s test @ http://127.0.0.1:8000/health
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    17.83ms   91.31ms   1.79s    98.66%
+    Req/Sec     0.96k   587.57     2.56k    64.54%
+  341722 requests in 30.08s, 37.80MB read
+  Socket errors: connect 0, read 68, write 0, timeout 35
+Requests/sec:  11358.95
+Transfer/sec:      1.26MB
+
+With Fastapi https://fastapi.tiangolo.com/#example
+root@4b6138c8bf6c:/# wrk -t12 -c400 -d30s http://127.0.0.1:8000/health
+Running 30s test @ http://127.0.0.1:8000/health
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   198.46ms  114.91ms   2.00s    95.19%
+    Req/Sec   175.68     47.44     0.88k    88.62%
+  61903 requests in 30.05s, 8.38MB read
+  Socket errors: connect 0, read 0, write 0, timeout 72
+Requests/sec:   2059.83
+Transfer/sec:    285.64KB
+
+
+Bunnyhopapi = Req/Sec 0.96k 
+Fastapi = Req/Sec 175.68
+
+Bunnyhopapi is 5.46 times faster.
+
+### 8. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
