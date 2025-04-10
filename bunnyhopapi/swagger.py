@@ -133,14 +133,14 @@ class SwaggerGenerator:
                 if "components" not in SWAGGER_JSON:
                     SWAGGER_JSON["components"] = {"schemas": {}}
                 SWAGGER_JSON["components"]["schemas"][param_type.__name__] = (
-                    param_type.schema()
+                    param_type.model_json_schema()
                 )
 
                 return {
                     "required": True,
                     "content": {
                         "application/json": {
-                            "schema": param_type.schema(
+                            "schema": param_type.model_json_schema(
                                 ref_template="#/components/schemas/{model}"
                             )
                         }
@@ -177,8 +177,8 @@ class SwaggerGenerator:
         if "components" not in SWAGGER_JSON:
             SWAGGER_JSON["components"] = {"schemas": {}}
         if model.__name__ not in SWAGGER_JSON["components"]["schemas"]:
-            SWAGGER_JSON["components"]["schemas"][model.__name__] = model.schema(
-                ref_template="#/components/schemas/{model}"
+            SWAGGER_JSON["components"]["schemas"][model.__name__] = (
+                model.model_json_schema(ref_template="#/components/schemas/{model}")
             )
 
         return {
