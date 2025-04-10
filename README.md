@@ -163,8 +163,8 @@ or
 Check the [`example/main.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/example/main.py) file for a complete example of how to use BunnyHopApi.
 
 ### 7. Benchmark
-
 With Bunnyhopapi python example/health.py
+```bash
 (bunnyhopapi) [sheik@archlinux bunnyhopapi]$ docker exec -it 4b6138c8bf6c bash
 root@4b6138c8bf6c:/# wrk -t12 -c400 -d30s http://127.0.0.1:8000/health    
 Running 30s test @ http://127.0.0.1:8000/health
@@ -176,8 +176,10 @@ Running 30s test @ http://127.0.0.1:8000/health
   Socket errors: connect 0, read 68, write 0, timeout 35
 Requests/sec:  11358.95
 Transfer/sec:      1.26MB
+```
 
 With Fastapi https://fastapi.tiangolo.com/#example
+```bash
 root@4b6138c8bf6c:/# wrk -t12 -c400 -d30s http://127.0.0.1:8000/health
 Running 30s test @ http://127.0.0.1:8000/health
   12 threads and 400 connections
@@ -188,7 +190,7 @@ Running 30s test @ http://127.0.0.1:8000/health
   Socket errors: connect 0, read 0, write 0, timeout 72
 Requests/sec:   2059.83
 Transfer/sec:    285.64KB
-
+```
 
 Bunnyhopapi = Req/Sec 0.96k 
 Fastapi = Req/Sec 175.68
