@@ -1,24 +1,35 @@
-import asyncio
 import os
-import mimetypes
 import signal
+import sys
+import mimetypes
+
 from multiprocessing import Process
+from watchdog.observers import Observer
+from threading import Timer
+from dataclasses import dataclass, field
+from watchdog.events import FileSystemEventHandler
+import uvloop
+import asyncio
+
 from .templates import serve_static_file
 from .models import ServerConfig, RouterBase
 from .swagger import SwaggerGenerator, SWAGGER_JSON
 from .client_handler import ClientHandler
 from . import logger
-import uvloop
-from dataclasses import dataclass
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Router(RouterBase):
     pass
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Server(ServerConfig, RouterBase):
+    auto_reload: bool = False
+    observer: Observer = field(init=False, default=Observer())
+    processes: list = field(init=False, default_factory=list)
+    debounce_timer: Timer = field(init=False, default=None)
+
     async def generate_swagger_json(self, *args, **kwargs):
         if not SWAGGER_JSON["paths"]:
             for path, methods in self.routes.items():
@@ -107,22 +118,83 @@ class Server(ServerConfig, RouterBase):
         self.add_swagger()
 
         uvloop.install()
-        processes = []
+
+        if self.auto_reload:
+            event_handler = ReloadEventHandler(self)
+            self.observer.schedule(event_handler, path=".", recursive=True)
+            self.observer.start()
 
         try:
             for _ in range(workers):
                 p = Process(target=self._start_worker)
                 p.start()
-                processes.append(p)
+                self.processes.append(p)
 
-            for p in processes:
+            for p in self.processes:
                 p.join()
         except KeyboardInterrupt:
             logger.info("Server stopped by user")
         finally:
-            for p in processes:
+            for p in self.processes:
                 p.terminate()
+            if self.observer:
+                self.observer.stop()
             logger.info("Server stopped")
+
+
+class ReloadEventHandler(FileSystemEventHandler):
+    def __init__(self, server):
+        self.server = server
+        self.main_script_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+        self.debounce_delay = 2
+        self.last_restart_time = 0
+
+    def on_any_event(self, event):
+        logger.debug(f"Detected event: {event}")
+
+        if (
+            event.is_directory
+            or event.event_type != "modified"
+            or not event.src_path.endswith(".py")
+        ):
+            return
+
+        if event.src_path.endswith("~") or event.src_path == ".":
+            return
+
+        event_src_path = os.path.abspath(event.src_path)
+
+        if (
+            not os.path.commonpath([self.main_script_dir, event_src_path])
+            == self.main_script_dir
+        ):
+            return
+
+        if any(
+            part in event_src_path
+            for part in [".git", "__pycache__", "venv", "build", "dist"]
+        ):
+            return
+
+        logger.info(f"Detected change in {event.src_path}, restarting server...")
+        if self.server.debounce_timer is not None:
+            self.server.debounce_timer.cancel()
+
+        self.server.debounce_timer = Timer(self.debounce_delay, self.restart_server)
+        self.server.debounce_timer.daemon = True
+        self.server.debounce_timer.start()
+
+    def restart_server(self):
+        if self.server.observer:
+            self.server.observer.stop()
+
+        for p in self.server.processes:
+            p.terminate()
+
+        for p in self.server.processes:
+            p.join()
+
+        os.execv(sys.executable, ["python"] + sys.argv)
 
 
 def handle_exit(signal, frame):

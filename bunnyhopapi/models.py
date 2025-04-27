@@ -180,14 +180,14 @@ class Endpoint(BaseEndpoint):
         return routes
 
 
-@dataclass(frozen=True)
+@dataclass()
 class ServerConfig:
     port: int = 8000
     host: str = "0.0.0.0"
     cors: bool = False
 
 
-@dataclass(frozen=True)
+@dataclass()
 class RouterBase:
     routes: dict = field(default_factory=dict)
     routes_with_params: dict[str, re.Pattern] = field(default_factory=dict)
