@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="bunnyhopapi",
-    version="1.3.4",
+    version="1.4.0",
     description="A simple, easy and fast http server for python",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
