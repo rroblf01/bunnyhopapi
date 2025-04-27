@@ -11,12 +11,6 @@ setup(
     url="https://github.com/rroblf01/bunnyhopapi",
     packages=find_packages(),
     python_requires=">=3.10",
-    install_requires=[
-        "pydantic==2.11.0",
-    ],
-    extras_require={
-        "lint": ["ruff==0.11.2"],
-    },
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
