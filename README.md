@@ -25,12 +25,9 @@ BunnyHopApi allows handling standard HTTP requests, SSE for real-time updates, a
 
 #### Example: HTTP Endpoint
 ```python
-class HealthEndpoint(Endpoint):
-    path = "/health"
-
-    @Endpoint.GET()
-    def get(self, headers):
-        return 200, {"message": "GET /health"}
+@server.get("/health")
+def health(headers):
+    return 200, {"message": "GET /health"}
 ```
 
 #### Example: SSE Endpoint
