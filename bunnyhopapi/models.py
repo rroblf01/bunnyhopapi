@@ -195,11 +195,6 @@ class RouterBase:
     websocket_handlers: dict[str, Coroutine] = field(default_factory=dict)
     prefix: str = field(default_factory=str)
 
-    GET = "GET"
-    POST = "POST"
-    PUT = "PUT"
-    DELETE = "DELETE"
-
     CONTENT_TYPE_JSON = "application/json"
     CONTENT_TYPE_HTML = "text/html"
     CONTENT_TYPE_SSE = "text/event-stream"
@@ -336,3 +331,93 @@ class RouterBase:
             "connection": connection,
             "disconnect": disconnect,
         }
+
+    def get(
+        self,
+        endpoint: str,
+        content_type=CONTENT_TYPE_JSON,
+        middleware: Coroutine = None,
+    ):
+        def decorator(func):
+            self.add_route(
+                endpoint,
+                "GET",
+                func,
+                content_type=content_type,
+                middleware=middleware,
+            )
+            return func
+
+        return decorator
+
+    def post(
+        self,
+        endpoint: str,
+        content_type=CONTENT_TYPE_JSON,
+        middleware: Coroutine = None,
+    ):
+        def decorator(func):
+            self.add_route(
+                endpoint,
+                "POST",
+                func,
+                content_type=content_type,
+                middleware=middleware,
+            )
+            return func
+
+        return decorator
+
+    def put(
+        self,
+        endpoint: str,
+        content_type=CONTENT_TYPE_JSON,
+        middleware: Coroutine = None,
+    ):
+        def decorator(func):
+            self.add_route(
+                endpoint,
+                "PUT",
+                func,
+                content_type=content_type,
+                middleware=middleware,
+            )
+            return func
+
+        return decorator
+
+    def patch(
+        self,
+        endpoint: str,
+        content_type=CONTENT_TYPE_JSON,
+        middleware: Coroutine = None,
+    ):
+        def decorator(func):
+            self.add_route(
+                endpoint,
+                "PATCH",
+                func,
+                content_type=content_type,
+                middleware=middleware,
+            )
+            return func
+
+        return decorator
+
+    def delete(
+        self,
+        endpoint: str,
+        content_type=CONTENT_TYPE_JSON,
+        middleware: Coroutine = None,
+    ):
+        def decorator(func):
+            self.add_route(
+                endpoint,
+                "DELETE",
+                func,
+                content_type=content_type,
+                middleware=middleware,
+            )
+            return func
+
+        return decorator
