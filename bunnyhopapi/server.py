@@ -3,7 +3,7 @@ import signal
 import sys
 import mimetypes
 
-from multiprocessing import Process, get_context
+from multiprocessing import get_context
 from watchdog.observers import Observer
 from threading import Timer
 from dataclasses import dataclass, field

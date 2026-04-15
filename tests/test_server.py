@@ -74,33 +74,38 @@ class TestServer:
     def test_run(self):
         with (
             patch("bunnyhopapi.server.uvloop.install") as mock_uvloop_install,
-            patch("bunnyhopapi.server.Process") as mock_process,
+            patch("bunnyhopapi.server.get_context") as mock_get_context,
             patch("bunnyhopapi.server.Server._run", return_value=None) as mock_run,
         ):
             mock_process_instance = MagicMock()
-            mock_process.return_value = mock_process_instance
+            mock_ctx = MagicMock()
+            mock_ctx.Process.return_value = mock_process_instance
+            mock_get_context.return_value = mock_ctx
 
             server_instance = Server(cors=True, port=8000)
             server_instance.run(workers=2)
 
             mock_uvloop_install.assert_called_once()
+            mock_get_context.assert_called_once_with("fork")
 
-            assert mock_process.call_count == 2
+            assert mock_ctx.Process.call_count == 2
             mock_process_instance.start.assert_called()
             mock_process_instance.join.assert_called()
 
-            for call_args in mock_process.call_args_list:
+            for call_args in mock_ctx.Process.call_args_list:
                 assert "target" in call_args.kwargs
                 assert callable(call_args.kwargs["target"])
 
     def test_run_keyboard_interrupt(self):
         with (
             patch("bunnyhopapi.server.uvloop.install") as mock_uvloop_install,
-            patch("bunnyhopapi.server.Process") as mock_process,
+            patch("bunnyhopapi.server.get_context") as mock_get_context,
             patch("bunnyhopapi.server.logger.info") as mock_logger,
         ):
             mock_process_instance = MagicMock()
-            mock_process.return_value = mock_process_instance
+            mock_ctx = MagicMock()
+            mock_ctx.Process.return_value = mock_process_instance
+            mock_get_context.return_value = mock_ctx
 
             server_instance = Server(cors=True, port=8000)
 
@@ -146,8 +151,7 @@ class TestServer:
         assert "<!DOCTYPE html>" in response
         assert "<title>Swagger UI</title>" in response
 
-    @pytest.mark.asyncio
-    async def test_start_worker_run(self):
+    def test_start_worker_run(self):
         with patch(
             "bunnyhopapi.server.Server._run", new_callable=AsyncMock
         ) as mock_run:
