@@ -63,7 +63,7 @@ class TestClientHandler:
             await client_handler._send_response(writer, response)
 
         mock_prepare_response.assert_called_once_with(
-            "application/json", 200, {"message": "Success"}
+            "application/json", 200, {"message": "Success"}, {}
         )
         writer.write.assert_called_once_with(b"HTTP/1.1 200 OK\r\n\r\n")
         writer.drain.assert_called_once()
@@ -99,7 +99,7 @@ class TestClientHandler:
             await client_handler._send_response(writer, response)
 
         mock_prepare_response.assert_called_once_with(
-            RouterBase.CONTENT_TYPE_SSE, 200, response["response_data"]
+            RouterBase.CONTENT_TYPE_SSE, 200, response["response_data"], {}
         )
         writer.write.assert_any_call(
             b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n"
@@ -149,7 +149,7 @@ class TestClientHandler:
             await client_handler._send_response(writer, response)
 
         mock_prepare_response.assert_called_once_with(
-            "application/json", 201, {"message": "Created"}
+            "application/json", 201, {"message": "Created"}, {}
         )
         writer.write.assert_called_once_with(b"HTTP/1.1 201 Created\r\n\r\n")
         writer.drain.assert_called_once()
@@ -180,6 +180,7 @@ class TestClientHandler:
                 "error": "Internal server error",
                 "message": "Unknown response format",
             },
+            {},
         )
         writer.write.assert_called_once_with(
             b"HTTP/1.1 500 Internal Server Error\r\n\r\n"
@@ -257,7 +258,7 @@ class TestClientHandler:
             patch.object(
                 client_handler.request_parser,
                 "parse_request",
-                return_value=("OPTIONS", "/", {}, None, {}),
+                return_value=("OPTIONS", "/", {}, None, {}, {}),
             ) as mock_parse_request,
             patch.object(
                 client_handler, "_handle_options", new=AsyncMock()
@@ -280,7 +281,7 @@ class TestClientHandler:
             patch.object(
                 client_handler.request_parser,
                 "parse_request",
-                return_value=("GET", "/test", {}, None, {}),
+                return_value=("GET", "/test", {}, None, {}, {}),
             ) as mock_parse_request,
             patch.object(
                 client_handler.route_handler,
@@ -300,7 +301,7 @@ class TestClientHandler:
             await client_handler.handle_client(reader, writer)
 
         mock_parse_request.assert_called_once_with(b"GET /test HTTP/1.1\r\n\r\n")
-        mock_execute_handler.assert_called_once_with("/test", "GET", None, {}, {})
+        mock_execute_handler.assert_called_once_with("/test", "GET", None, {}, {}, {})
         mock_send_response.assert_called_once_with(
             writer,
             {

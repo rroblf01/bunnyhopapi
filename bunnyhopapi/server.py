@@ -3,7 +3,7 @@ import signal
 import sys
 import mimetypes
 
-from multiprocessing import Process
+from multiprocessing import Process, get_context
 from watchdog.observers import Observer
 from threading import Timer
 from dataclasses import dataclass, field
@@ -26,7 +26,7 @@ class Router(RouterBase):
 @dataclass(slots=True)
 class Server(ServerConfig, RouterBase):
     auto_reload: bool = False
-    observer: Observer = field(init=False, default=Observer())
+    observer: Observer = field(init=False, default=None)
     processes: list = field(init=False, default_factory=list)
     debounce_timer: Timer = field(init=False, default=None)
 
@@ -106,11 +106,7 @@ class Server(ServerConfig, RouterBase):
 
     def _start_worker(self):
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(self._run())
-            else:
-                asyncio.run(self._run())
+            asyncio.run(self._run())
         except KeyboardInterrupt:
             logger.info("Worker received stop signal")
 
@@ -119,16 +115,22 @@ class Server(ServerConfig, RouterBase):
 
         uvloop.install()
 
-        if self.auto_reload:
-            event_handler = ReloadEventHandler(self)
-            self.observer.schedule(event_handler, path=".", recursive=True)
-            self.observer.start()
-
+        # Use 'fork' context explicitly: avoids pickling the Server object,
+        # which is required by the new 'forkserver' default in Python 3.14+.
+        ctx = get_context("fork")
         try:
             for _ in range(workers):
-                p = Process(target=self._start_worker)
+                p = ctx.Process(target=self._start_worker)
                 p.start()
                 self.processes.append(p)
+
+            # Start observer AFTER forking workers so children don't inherit
+            # the inotify file descriptor or the observer thread.
+            if self.auto_reload:
+                self.observer = Observer()
+                event_handler = ReloadEventHandler(self)
+                self.observer.schedule(event_handler, path=".", recursive=True)
+                self.observer.start()
 
             for p in self.processes:
                 p.join()

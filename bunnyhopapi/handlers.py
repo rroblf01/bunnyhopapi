@@ -32,6 +32,7 @@ class RouteHandler:
         body: str | None = None,
         headers: dict | None = None,
         query_params: dict | None = None,
+        cookies: dict | None = None,
     ):
         route_info = self._find_route(path, method)
         if not route_info:
@@ -40,7 +41,7 @@ class RouteHandler:
         handler_info, params = route_info
         handler_info["params"] = params
         return await self._process_handler(
-            handler_info, path, method, body, headers, query_params
+            handler_info, path, method, body, headers, query_params, cookies
         )
 
     def _find_route(self, path: str, method: str):
@@ -69,6 +70,7 @@ class RouteHandler:
         body: str = None,
         headers: dict = None,
         query_params: dict = None,
+        cookies: dict = None,
     ):
         handler = route_info["handler"]
         content_type = route_info["content_type"]
@@ -100,23 +102,33 @@ class RouteHandler:
             validated_params.update(body_validation["validated_params"])
 
         try:
-            result = (middleware or handler)(headers=headers, **validated_params)
+            call_kwargs = {"headers": headers, **validated_params}
+            if "cookies" in type_hints:
+                call_kwargs["cookies"] = cookies or {}
+
+            result = (middleware or handler)(**call_kwargs)
 
             if inspect.isasyncgen(result):
                 return {
                     "content_type": RouterBase.CONTENT_TYPE_SSE,
                     "status_code": 200,
                     "response_data": result,
+                    "cookies": {},
                 }
 
             response = await result if asyncio.iscoroutine(result) else result
 
-            if not isinstance(response, tuple) or len(response) != 2:
+            if not isinstance(response, tuple) or len(response) not in (2, 3):
                 raise ValueError(
-                    "Handler must return a tuple of (status_code, response_data)"
+                    "Handler must return (status_code, response_data) "
+                    "or (status_code, response_data, cookies)"
                 )
 
-            status_code, response_data = response
+            if len(response) == 3:
+                status_code, response_data, response_cookies = response
+            else:
+                status_code, response_data = response
+                response_cookies = {}
 
             return_type = type_hints.get("return", {})
             if isinstance(return_type, dict) and (
@@ -135,12 +147,14 @@ class RouteHandler:
                             "error": "Validation error",
                             "details": e.errors(),
                         },
+                        "cookies": {},
                     }
 
             return {
                 "content_type": content_type,
                 "status_code": status_code,
                 "response_data": response_data,
+                "cookies": response_cookies,
             }
 
         except Exception as e:
@@ -149,6 +163,7 @@ class RouteHandler:
                 "content_type": content_type,
                 "status_code": 500,
                 "response_data": {"error": "Internal server error", "message": str(e)},
+                "cookies": {},
             }
 
     def _validate_params(self, params: dict, type_hints: dict, query_params: dict = {}):

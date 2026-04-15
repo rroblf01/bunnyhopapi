@@ -32,6 +32,7 @@ class ClientHandler:
             headers,
             body,
             query_params,
+            cookies,
         ) = await self.request_parser.parse_request(request_data)
 
         if method is None:
@@ -50,7 +51,7 @@ class ClientHandler:
             return
 
         response = await self.route_handler.execute_handler(
-            path, method, body, headers, query_params
+            path, method, body, headers, query_params, cookies
         )
         await self._send_response(writer, response)
 
@@ -96,6 +97,7 @@ class ClientHandler:
                     response["content_type"],
                     response["status_code"],
                     response["response_data"],
+                    response.get("cookies", {}),
                 )
 
                 writer.write(prepared)
@@ -112,12 +114,15 @@ class ClientHandler:
                     await writer.wait_closed()
                 return
 
+            # 3-tuple from _route_not_found_response: (content_type, status_code, data)
             if isinstance(response, tuple) and len(response) == 3:
                 content_type, status_code, response_data = response
+                response_cookies = {}
             elif isinstance(response, dict):
                 content_type = response["content_type"]
                 status_code = response["status_code"]
                 response_data = response["response_data"]
+                response_cookies = response.get("cookies", {})
             else:
                 content_type = "application/json"
                 status_code = 500
@@ -125,9 +130,10 @@ class ClientHandler:
                     "error": "Internal server error",
                     "message": "Unknown response format",
                 }
+                response_cookies = {}
 
             prepared = self.response_handler.prepare_response(
-                content_type, status_code, response_data
+                content_type, status_code, response_data, response_cookies
             )
 
             writer.write(prepared)

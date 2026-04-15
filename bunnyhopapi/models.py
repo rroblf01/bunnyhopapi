@@ -4,6 +4,23 @@ import re
 from functools import partial
 from dataclasses import dataclass, field
 
+
+@dataclass
+class CookieOptions:
+    """Cookie with optional attributes for Set-Cookie headers.
+
+    Usage:
+        return 200, data, {"session": CookieOptions("abc", httponly=True, max_age=3600)}
+    """
+    value: str
+    path: str = "/"
+    max_age: int = None
+    expires: str = None
+    domain: str = None
+    httponly: bool = False
+    secure: bool = False
+    samesite: str = None  # "Strict", "Lax", or "None"
+
 T = TypeVar("T")
 
 

@@ -11,6 +11,7 @@ BunnyHopApi is a lightweight and fast web framework designed to handle modern we
   - At the route level.
   - At the endpoint level.
 - **CORS**: Simple configuration to enable CORS.
+- **Cookies**: Read request cookies and set response cookies with full attribute support.
 - **Web Page Rendering**:
   - Static pages.
   - Dynamic pages with Jinja2.
@@ -140,13 +141,94 @@ class UserEndpoint(Endpoint):
             return 404, {"message": "User not found"}
 ```
 
-### 4. Swagger Documentation
+### 4. Cookies
+
+BunnyHopApi provides built-in support for reading cookies from incoming requests and setting cookies on responses.
+
+#### Reading cookies
+
+Declare `cookies: dict` in your handler signature and the framework will automatically inject the cookies parsed from the `Cookie` request header.
+
+```python
+@server.get("/profile")
+def profile(headers, cookies: dict):
+    user_id = cookies.get("user_id")
+    if not user_id:
+        return 401, {"error": "Not authenticated"}
+    return 200, {"user_id": user_id}
+```
+
+#### Setting cookies
+
+Return a third element in the response tuple: a dict mapping cookie names to values. Use a plain string for simple cookies, or `CookieOptions` when you need to control attributes like `Max-Age`, `Path`, `HttpOnly`, `Secure`, or `SameSite`.
+
+```python
+from bunnyhopapi.models import CookieOptions
+
+@server.post("/login")
+def login(headers):
+    response_cookies = {
+        # Simple cookie (no attributes)
+        "theme": "dark",
+
+        # Cookie with full attribute control
+        "session": CookieOptions(
+            value="abc123",
+            path="/",
+            max_age=60 * 60 * 8,  # 8 hours
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+        ),
+    }
+    return 200, {"message": "Logged in"}, response_cookies
+```
+
+#### Modifying an existing cookie
+
+Read the current value from `cookies`, compute the new value, and return it in the response cookies dict under the same name.
+
+```python
+@server.get("/visit")
+def visit(headers, cookies: dict):
+    count = int(cookies.get("visits", 0)) + 1
+    return 200, {"visits": count}, {
+        "visits": CookieOptions(value=str(count), path="/", max_age=60 * 60 * 24 * 7),
+    }
+```
+
+#### Deleting a cookie
+
+Set `max_age=0` to instruct the browser to expire the cookie immediately.
+
+```python
+@server.get("/logout")
+def logout(headers):
+    return 200, {"message": "Logged out"}, {
+        "session": CookieOptions(value="", path="/", max_age=0),
+    }
+```
+
+#### `CookieOptions` reference
+
+| Attribute  | Type    | Default | Description                                      |
+|------------|---------|---------|--------------------------------------------------|
+| `value`    | `str`   | —       | Cookie value (required)                          |
+| `path`     | `str`   | `"/"`   | URL path scope                                   |
+| `max_age`  | `int`   | `None`  | Lifetime in seconds. `0` deletes the cookie      |
+| `expires`  | `str`   | `None`  | Expiry date string (RFC 7231 format)             |
+| `domain`   | `str`   | `None`  | Domain scope                                     |
+| `httponly` | `bool`  | `False` | Blocks JavaScript access via `document.cookie`   |
+| `secure`   | `bool`  | `False` | Only sent over HTTPS                             |
+| `samesite` | `str`   | `None`  | `"Strict"`, `"Lax"`, or `"None"`                |
+
+### 5. Swagger Documentation
 BunnyHopApi automatically generates Swagger documentation for all endpoints, making it easy to explore and test your API.
 
 #### Example: Access Swagger
 Once the server is running, visit `/docs` in your browser to view the Swagger UI.
 
-### 5. Installation
+### 6. Installation
 
 You can install BunnyHopApi directly from PyPI:
 
@@ -154,13 +236,13 @@ You can install BunnyHopApi directly from PyPI:
 pip install bunnyhopapi
 ```
 
-### 6. Example Project
+### 7. Example Project
 
 Check the [`example/crud.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/example/crud.py) file for an example of how to generate a CRUD using BunnyHopApi.
 or
 Check the [`example/main.py`](https://github.com/rroblf01/bunnyhopapi/blob/main/example/main.py) file for a complete example of how to use BunnyHopApi.
 
-### 7. Benchmark
+### 8. Benchmark
 With Bunnyhopapi python example/health.py
 ```bash
 root@4b6138c8bf6c:/# wrk -t12 -c400 -d30s http://127.0.0.1:8000/health    
@@ -199,13 +281,13 @@ Running 30s test @ http://127.0.0.1:8000/health
 Requests/sec:   3398.65
 Transfer/sec:      0.94MB
 ```
-### Summary
+### 8. Summary
 | Framework    | Requests/sec | Latencia Promedio |
 |--------------|--------------|-------------------|
 | Bunnyhopapi  | **11358.95** | 17.83ms          |
 | FastAPI      | 2059.83      | 198.46ms         |
 | Django       | 3398.65      | 116.12ms         |
 
-### 8. License
+### 9. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

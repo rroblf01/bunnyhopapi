@@ -261,8 +261,7 @@ class TestRouteHandler:
         assert response["status_code"] == 500
         assert response["response_data"]["error"] == "Internal server error"
         assert (
-            "Handler must return a tuple of (status_code, response_data)"
-            in response["response_data"]["message"]
+            "Handler must return" in response["response_data"]["message"]
         )
 
     @pytest.mark.asyncio

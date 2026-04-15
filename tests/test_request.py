@@ -15,7 +15,7 @@ class TestRequestParser:
         request_data = (
             b"GET /test HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n"
         )
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -30,7 +30,7 @@ class TestRequestParser:
         request_data = (
             b"GET /test?param1=value1&param2=value2 HTTP/1.1\r\nHost: localhost\r\n\r\n"
         )
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -50,7 +50,7 @@ class TestRequestParser:
             b"Content-Length: " + str(len(expected_body)).encode("utf-8") + b"\r\n\r\n"
             b"" + expected_body.encode("utf-8")
         )
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -63,7 +63,7 @@ class TestRequestParser:
     @pytest.mark.asyncio
     async def test_parse_request_invalid_format(self, request_parser):
         request_data = b"INVALID REQUEST"
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -72,11 +72,12 @@ class TestRequestParser:
         assert headers is None
         assert body is None
         assert query_params is None
+        assert cookies == {}
 
     @pytest.mark.asyncio
     async def test_parse_request_missing_headers(self, request_parser):
         request_data = b"GET /test HTTP/1.1\r\n\r\n"
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -89,7 +90,7 @@ class TestRequestParser:
     @pytest.mark.asyncio
     async def test_parse_request_first_line_too_short(self, request_parser):
         request_data = b"GET\r\nHost: localhost\r\n\r\n"
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -98,13 +99,14 @@ class TestRequestParser:
         assert headers is None
         assert body is None
         assert query_params is None
+        assert cookies == {}
 
     @pytest.mark.asyncio
     async def test_parse_request_empty_header_line(self, request_parser):
         request_data = (
             b"GET /test HTTP/1.1\r\nHost: localhost\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"
         )
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -126,7 +128,7 @@ class TestRequestParser:
             + b"\r\n\r\n"
             + binary_body
         )
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -145,7 +147,7 @@ class TestRequestParser:
             b"Content-Length: invalid\r\n\r\n"
             b'{"key": "value"}'
         )
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -162,7 +164,7 @@ class TestRequestParser:
                 raise Exception("Mocked exception")
 
         request_data = MockBytes()
-        method, path, headers, body, query_params = await request_parser.parse_request(
+        method, path, headers, body, query_params, cookies = await request_parser.parse_request(
             request_data
         )
 
@@ -171,6 +173,7 @@ class TestRequestParser:
         assert headers is None
         assert body is None
         assert query_params is None
+        assert cookies == {}
 
     def test_extract_params_route_not_in_routes_with_params(self, request_parser):
         path = "/test/123"

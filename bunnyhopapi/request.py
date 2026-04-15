@@ -3,6 +3,18 @@ class RequestParser:
         self.routes = routes
         self.routes_with_params = routes_with_params
 
+    def _parse_cookies(self, headers: dict) -> dict:
+        cookies = {}
+        cookie_header = headers.get("Cookie", "")
+        if not cookie_header:
+            return cookies
+        for pair in cookie_header.split(";"):
+            pair = pair.strip()
+            if "=" in pair:
+                name, value = pair.split("=", 1)
+                cookies[name.strip()] = value.strip()
+        return cookies
+
     def _extract_params(self, path: str, route_path: str):
         if route_path not in self.routes_with_params:
             return None
@@ -18,7 +30,7 @@ class RequestParser:
         try:
             header_end = request_data.find(b"\r\n\r\n")
             if header_end == -1:
-                return None, None, None, None, None
+                return None, None, None, None, None, {}
 
             header_data = request_data[:header_end]
 
@@ -31,7 +43,7 @@ class RequestParser:
                 first_line = headers_text[:first_line_end].split(" ", 2)
 
             if len(first_line) < 2:
-                return None, None, None, None, None
+                return None, None, None, None, None, {}
 
             method = first_line[0]
             raw_path = first_line[1]
@@ -83,7 +95,8 @@ class RequestParser:
                 except (ValueError, UnicodeDecodeError):
                     pass
 
-            return method, path, headers, body, query_params
+            cookies = self._parse_cookies(headers)
+            return method, path, headers, body, query_params, cookies
 
         except Exception as e:
-            return None, None, None, None, None
+            return None, None, None, None, None, {}
